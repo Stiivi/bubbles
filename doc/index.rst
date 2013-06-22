@@ -11,6 +11,9 @@ Contents:
 .. toctree::
     :maxdepth: 2
 
+    introduction
+    install
+    objects
     operations
     api
 

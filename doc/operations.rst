@@ -14,6 +14,10 @@ There are several kinds of operations:
 * Conversions - convert objects to other types
 * Output – generate output from objects
 
+Currently implemented operations can be found at
+http://www.scribd.com/doc/147247069/Bubbles-Brewery2-Operations.
+
+
 Operation Context
 =================
 

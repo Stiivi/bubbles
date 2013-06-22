@@ -41,6 +41,11 @@ To install Bubbles from sources, you can get it from Github:
 Documentation
 -------------
 
+[Introduction to bubbles](http://www.slideshare.net/Stiivi/data-brewery-2-data-objects) (Slideshare presentation)
+
+[Operations](http://www.scribd.com/doc/147247069/Bubbles-Brewery2-Operations)
+(Scribd document)
+
 Documentation can be found at: http://packages.python.org/bubbles
 
 Sources
