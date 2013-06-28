@@ -3,6 +3,7 @@
 import urllib.request, urllib.error, urllib.parse
 import urllib.parse
 import codecs
+import re
 
 __all__ = (
             "open_resource",
@@ -18,12 +19,17 @@ def open_resource(resource, mode=None, encoding=None):
     Returns tuple: (handle, should_close) where `handle` is file-like object and `should_close` is
         a flag whether returned handle should be closed or not. Closed should be resources which
         where opened by this method, that is resources referenced by a string or URL.
+
     """
 
     if isinstance(resource, str):
         should_close = True
         parts = urllib.parse.urlparse(resource)
-        if parts.scheme == '' or parts.scheme == 'file':
+
+        # FIXME: this is MS Windows workaround
+        is_winpath = bool(re.match(r'^[a-zA-Z]:[\\/][^\\/]', resource))
+
+        if is_winpath or parts.scheme == '' or parts.scheme == 'file':
             if mode:
                 handle = open(resource, mode=mode,encoding=encoding)
             else:
