@@ -35,6 +35,14 @@ _default_op_modules = (
 
 Operand = namedtuple("Operand", ["rep", "islist", "isany"])
 
+
+OperationPrototype = namedtuple("OperationPrototype",
+                                [   "name",
+                                    "operand_count",
+                                    "operands",
+                                    "parameters"])
+
+
 def rep_to_operand(rep):
     """Converts representation to `Operand` definition"""
 
@@ -173,7 +181,6 @@ def extract_signatures(*objects):
                                 "%s (not a data object)" % type(obj).__name__)
     return signatures
 
-
 class Operation(object):
     def __init__(self, func, signature, name=None):
         """Creates an operation with function `func` and `signature`. If
@@ -187,10 +194,7 @@ class Operation(object):
 
         self.function = func
         self.name = name or self.function.__name__
-        if isinstance(signature, (list, tuple)):
-            self.signature = Signature(*signature)
-        else:
-            self.signature = signature
+        self.signature = signature
 
     def __eq__(self, other):
         if not isinstance(other, Operation):
@@ -227,7 +231,7 @@ def operation(*signature, name=None):
             raise ArgumentError("Function %s is already an operation (%s)" %
                                   (fn.function.__name__, fn.name))
         else:
-            op = Operation(fn, signature=signature, name=name)
+            op = Operation(fn, signature=Signature(*signature), name=name)
         return op
 
     return decorator
@@ -235,29 +239,43 @@ def operation(*signature, name=None):
 class OperationList(UserList):
     def __init__(self):
         super().__init__()
-        self.argument_count = None
-        self.prototype_sitnature = None
+        self.prototype = None
 
     def append(self, op):
         """Appends op to the operation list. If the `op` is first operation,
         then treat it as prototype and set required operation argument
         count."""
 
-        if self.argument_count is None:
+        if not self.prototype:
             self.set_prototype(op)
-        if len(op.signature) != self.argument_count:
+        if len(op.signature) != self.prototype.operand_count:
 
             raise ArgumentError("Number of object arguments (%s) for %s do not"
                     "match prototype (%s)" % (len(op.signature, op,
-                                              self.argument_count)))
+                                              self.prototype.operand_count)))
 
         super().append(op)
 
     def set_prototype(self, op):
         """Sets operation prototype for this operation list."""
-        self.argument_count = len(op.signature)
-        self.prototype_signature = op.signature.as_prototype()
+        opcount = len(op.signature)
 
+        function_sig = inspect.signature(op.function)
+        # Extract just parameter names (sig.parameters is a mapping)
+        names = tuple(function_sig.parameters.keys())
+        # Set operand names from function parameter names, skip the context
+        # parameter and use only as many parameters as operands in the
+        # signature
+        operands = names[1:1+opcount]
+        # ... rest of the names are considered operation parameters
+        parameters = names[1+opcount:]
+
+        self.prototype = OperationPrototype(
+                    op.name,
+                    opcount,
+                    operands,
+                    parameters
+                )
 
 class OperationContext(object):
     # TODO: add parent_context
@@ -299,7 +317,7 @@ class OperationContext(object):
     def operation_prototype(self, name):
         """Returns a prototype signature for operation `name`"""
         oplist = self.operation_list(name)
-        return oplist.prototype_signature
+        return oplist.prototype
 
     def add_operations_from(self, obj):
         """Import operations from `obj`. All attributes of `obj` are
@@ -396,7 +414,7 @@ class OperationContext(object):
         operation"""
 
         oplist = self.operation_list(op_name)
-        argc = oplist.argument_count
+        argc = oplist.prototype.operand_count
         match_objects = args[0:argc]
 
         # Find best signature match for the operation based on object
