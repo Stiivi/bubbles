@@ -81,7 +81,7 @@ class KernelTestCase(unittest.TestCase):
 
         self.assertFalse(is_operation(fun))
 
-        op = Operation(fun, ["sql", "rows"])
+        op = Operation(fun, Signature("sql", "rows"))
 
         self.assertEqual("fun", op.name)
         self.assertEqual("sql", op.signature[0])
@@ -91,6 +91,9 @@ class KernelTestCase(unittest.TestCase):
         self.assertEqual("fun", op.name)
         self.assertEqual("sql", op.signature[0])
 
+        self.assertEqual(op.function, op2.function)
+        self.assertEqual(op.name, op2.name)
+        self.assertEqual(op.signature, op2.signature)
         self.assertEqual(op, op2)
 
     def test_register(self):
@@ -121,6 +124,22 @@ class KernelTestCase(unittest.TestCase):
 
         with self.assertRaises(ArgumentError):
             c.add_operation(op)
+
+    def test_prototype(self):
+        def join(ctx, master, detail, master_key, detail_key):
+            pass
+
+        c = OperationContext()
+
+        op = Operation(join, Signature("rows", "rows"))
+        c.add_operation(op)
+
+        proto = c.operation_prototype("join")
+        self.assertEqual(2, proto.operand_count)
+        self.assertSequenceEqual(["master", "detail"], proto.operands)
+        self.assertSequenceEqual(["master_key", "detail_key"],
+                                 proto.parameters)
+
 
     def test_extract_signatures(self):
         obj = DummyDataObject(["rows", "sql"])
