@@ -434,6 +434,9 @@ class SQLDataObject(DataObject):
     def __iter__(self):
         return self.rows()
 
+    def is_consumable(self):
+        return False
+
     def clone_statement(self, statement=None, fields=None):
         """Clone statement representation from the receiver. If `statement` or
         `fields` are not specified, then they are copied from the receiver.

@@ -336,7 +336,7 @@ class CSVSource(DataObject):
         try:
             self.converters = [self.type_converters[f.storage_type] for f in fields]
         except KeyError as e:
-            raise bubblesError("Unknown conversion: %s" % e)
+            raise BubblesError("Unknown conversion: %s" % e)
 
         if not any(self.converters):
             self.converters = None
@@ -383,6 +383,10 @@ class CSVSource(DataObject):
         fields = self.fields.names()
         for row in self.reader:
             yield dict(zip(fields, row))
+
+    def is_consumable(self):
+        return True
+
 
 class CSVTarget(DataObject):
     """Comma separated values text file as a data target."""

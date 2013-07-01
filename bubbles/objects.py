@@ -258,6 +258,8 @@ class IterableDataSource(DataObject):
     def records(self):
         return as_records(self.iterable, self.fields)
 
+    def is_consumable(self):
+        return True
 
     def filter(self, keep=None, drop=None, rename=None):
         """Returns another iterable data source with filtered fields"""
@@ -294,6 +296,10 @@ class IterableRecordsDataSource(IterableDataSource):
 
     def records(self):
         return iter(self.iterable)
+
+    def is_consumable(self):
+        return True
+
 
 class RowListDataObject(DataObject):
     """Wrapped Python list that serves as data source or data target. The list
@@ -333,6 +339,9 @@ class RowListDataObject(DataObject):
 
     def records(self):
         return as_records(self.rows(), self.fields)
+
+    def is_consumable(self):
+        return False
 
     def append(self, row):
         self.data.append(row)
