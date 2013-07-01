@@ -2,10 +2,10 @@ from .errors import *
 from .core import default_context
 
 __all__ = [
-            "Pipeline"
+            "ImmediatePipeline"
         ]
 
-class Pipeline(object):
+class ImmediatePipeline(object):
     def __init__(self, stores=None, context=None, obj=None):
         """Creates a new pipeline with `context` and sets current object to
         `obj`. If no context is provided, default one is used.
