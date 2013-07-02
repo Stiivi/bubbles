@@ -32,3 +32,4 @@ def recommended(fn):
     """Mark method as recommended to be implemented by subclasses"""
     fn._bubbles_recommended = True
     return fn
+

@@ -19,7 +19,9 @@ __all__ = (
 )
 
 class NodeBase(object):
-    pass
+    def outlets(self, context):
+        """Default node has no outlets."""
+        return []
 
 class Node(NodeBase):
     def __init__(self, opname, *args, **kwargs):
@@ -42,6 +44,11 @@ class Node(NodeBase):
 
     def __str__(self):
         return "operation %s" % self.opname
+
+    def outlets(self, context):
+        prototype = context.operation_prototype(self.opname)
+        return prototype.operands
+
 
 class FactorySourceNode(NodeBase):
     def __init__(self, factory, *args, **kwargs):
@@ -92,6 +99,39 @@ class ObjectNode(NodeBase):
     def evaluate(self, engine, context, operands=None):
         """Returns the contained object."""
         return self.obj
+
+
+class CreateObjectNode(NodeBase):
+    def __init__(self, store, name, *args, **kwargs):
+        self.store = store
+        self.name = name
+        self.args = args
+        self.kwargs = kwargs
+
+    def is_source(self):
+        return False
+
+    def evaluate(self, engine, context, operands=None):
+        if len(operands) != 1:
+            raise ArgumentError("Number of operands for 'create object' should be 1")
+
+        source = operands[0]
+
+        try:
+            store = engine.stores[self.store]
+        except KeyError:
+            raise ArgumentError("Unknown store %s" % self.store)
+
+        target = store.create(self.name, fields=source.fields,
+                              *self.args, **self.kwargs)
+        target.append_from(source)
+
+        return target
+
+    def outlets(self, context):
+        """`Create` node has one outlet for an object that will be used to
+        fill the created object's content."""
+        return ["default"]
 
 Connection = namedtuple("Connection", ["source", "target", "outlet"])
 
@@ -366,17 +406,6 @@ class ExecutionEngine(object):
         self.context = context
         self.logger = context.logger
 
-    def outlets_for_node(self, node):
-        """Return list of outlet names for `node`. Outlet names are derived
-        from a prototype of nodes's operation within execution context."""
-
-        # Consider source node
-        if node.is_source():
-            return []
-
-        prototype = self.context.operation_prototype(node.opname)
-        return prototype.operands
-
     def prepare_execution_plan(self, graph):
         """Returns a list of topologically sorted `ExecutionSteps`, ready to
         be used for execution.
@@ -404,7 +433,7 @@ class ExecutionEngine(object):
 
         for node in sorted_nodes:
             sources = graph.sources(node)
-            outlets = self.outlets_for_node(node)
+            outlets = node.outlets(self.context)
 
             outlet_nodes = []
             for i, outlet in enumerate(outlets):
@@ -531,6 +560,14 @@ class Pipeline(object):
 
         self.graph.add(node)
         self.node = node
+
+        return self
+
+    def create(self, store, name, *args, **kwargs):
+        """Create new object `name` in store `name`. """
+
+        node = CreateObjectNode(store, name, *args, **kwargs)
+        self._append_node(node)
 
         return self
 
