@@ -24,6 +24,9 @@ class ProbeAssertionError(BubblesError):
     """Raised when proble assertion fails"""
     pass
 
+class ConsumedError(BubblesError):
+    """Raised wheny trying to read from already consumed object"""
+    pass
 #
 # DataObject and DataStore errors
 #
@@ -71,4 +74,7 @@ class RetryOperation(Exception):
 
 class RetryError(BubblesError):
     """Raised when operation was retried too many times"""
+    pass
+
+class GraphError(BubblesError):
     pass
