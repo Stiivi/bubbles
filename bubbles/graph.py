@@ -1,4 +1,4 @@
-from collections import OrderedDict, namedtuple
+from collections import OrderedDict, namedtuple, Counter
 from .objects import data_object
 from .common import get_logger
 from .errors import *
@@ -325,9 +325,8 @@ class Graph(object):
 class ExecutionStep(object):
     def __init__(self, node, outlets=None, result=None):
         self.node = node
-        self.outlets = outlets
-        self._result = result
-        self._used = False
+        self.outlets = outlets or []
+        self.result = result
 
     def evaluate(self, engine, context, operands):
         """Evaluates the wrapped node within `context` and with `operands`.
@@ -339,17 +338,6 @@ class ExecutionStep(object):
     def __str__(self):
         return "evaluate %s" % str(self.node)
 
-    @property
-    def result(self):
-        if self._used and self._result.is_consumable():
-            raise BubblesError("Consumable result %s used twice" % self._result)
-
-        self._used = True
-        return self._result
-
-    @result.setter
-    def result(self, value):
-        self._result = value
 
 # Execution Engine
 # ================
@@ -362,6 +350,8 @@ class ExecutionStep(object):
 
 # TODO: allow use of lists of objects, such as rows[] or sql[]. Currently
 # there is no way how to specify this kind of connections in the graph.
+
+ExecutionPlan = namedtuple("ExecutionPlan", ["steps", "consumption"])
 
 class ExecutionEngine(object):
 
@@ -405,7 +395,12 @@ class ExecutionEngine(object):
         sorted_nodes = graph.sorted_nodes()
 
         node_steps = {}
-        plan = []
+        steps = []
+
+        # Count consumption of node's output and add consumption hints to the
+        # execution plan. ExecutionEngine should handle (or refuse to handle)
+        # multiple consumptions of consumable objects
+        consumption = Counter()
 
         for node in sorted_nodes:
             sources = graph.sources(node)
@@ -425,29 +420,59 @@ class ExecutionEngine(object):
                 # Get execution node wrapper for the outlet node
                 outlet_nodes.append(node_steps[outlet_node])
 
+                # Count the consumption (see note before the outer loop)
+                consumption[outlet_node] += 1
+
             step = ExecutionStep(node, outlets=outlet_nodes)
 
             node_steps[node] = step
-            plan.append(step)
+            steps.append(step)
+
+        plan = ExecutionPlan(steps, consumption)
 
         return plan
 
     def run(self, graph):
         """Runs the `graph` nodes. First an execution plan is prepared, then
         the nodes are executed according to the plan. See
-        :meth:`ExecutionEngine.prepare_execution_plan` for more information."""
+        :meth:`ExecutionEngine.prepare_execution_plan` for more information.
+        """
+
+        # TODO: write documentation about consumable objects
 
         plan = self.prepare_execution_plan(graph)
 
-        for i, step in enumerate(plan):
+        # Set of already consumed nodes
+        consumed = set()
+
+        for i, step in enumerate(plan.steps):
             self.logger.debug("step %s: %s" % (i, str(step)))
 
-            if step.outlets:
-                operands = [o.result for o in step.outlets]
-            else:
-                operands = []
+            operands = []
+            # FIXME: continue here
+
+            for outlet in step.outlets:
+
+                # Check how many times the outlet node that is about to be
+                # used is going to be consumed. If it is consumable and will
+                # be consumed more than once, then a retained version of the
+                # object is created. Retention policy is defined by the
+                # backend. In most of the cases it is just python list wrapper
+                # over consumed iterator of rows, which might be quite costly.
+
+                consume_times = plan.consumption[outlet.node]
+                if outlet.result.is_consumable() and consume_times > 1:
+                    if outlet.node not in consumed:
+                        self.logger.debug("retaining consumable %s. it will "
+                                          "be consumed %s times" % \
+                                                 (outlet.node, consume_times))
+                        outlet.result = outlet.result.retained()
+
+                consumed.add(outlet.node)
+                operands.append(outlet.result)
 
             step.evaluate(self, self.context, operands)
+
 
 class Pipeline(object):
     def __init__(self, stores=None, context=None, graph=None):
