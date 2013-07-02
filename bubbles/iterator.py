@@ -283,6 +283,148 @@ def sort(ctx, obj, orderby):
     return iterator
 
 
+###
+# Simple and naive aggregation in Python
+
+def agg_sum(a, value):
+    return a+value
+
+def agg_average(a, value):
+    return (a[0]+1, a[1]+value)
+
+def agg_average_finalize(a):
+    return a[1]/a[0]
+
+AggregationFunction = namedtuple("AggregationFunction",
+                            ["func", "start", "finalize"])
+aggregation_functions = {
+            "sum": AggregationFunction(agg_sum, 0, None),
+            "min": AggregationFunction(min, 0, None),
+            "max": AggregationFunction(max, 0, None),
+            "average": AggregationFunction(agg_average, (0,0), agg_average_finalize)
+        }
+
+@operation("rows")
+def aggregate(ctx, obj, key, measures, include_count=True,
+              count_field="record_count"):
+    """Aggregates measure fields in `iterator` by `keys`. `fields` is a field
+    list of the iterator, `keys` is a list of fields that will be used as
+    keys. `aggregations` is a list of measures to be aggregated.
+
+    `measures` should be a list of tuples in form (`measure`, `aggregate`).
+    See `distill_measure_aggregates()` for how to convert from arbitrary list
+    of measures into this form.
+
+    Output of this iterator is an iterator that yields rows with fields that
+    contain: key fields, measures (as specified in the measures list) and
+    optional record count if `include_count` is ``True`` (default).
+
+    Result is not ordered even the input was ordered.
+
+    .. note:
+
+        This is naïve, pure Python implementation of aggregation. Might not
+        fit your expectations in regards of speed and memory consumption for
+        large datasets.
+    """
+
+    def aggregation_result(keys, aggregates, measure_aggregates):
+        # Pass results to output
+        for key in keys:
+            row = list(key[:])
+
+            key_aggregate = aggregates[key]
+            for i, (measure, index, function) in enumerate(measure_aggregates):
+                aggregate = key_aggregate[i]
+                finalize = aggregation_functions[function].finalize
+                if finalize:
+                    row.append(finalize(aggregate))
+                else:
+                    row.append(aggregate)
+
+            if include_count:
+                row.append(key_aggregate[-1])
+
+            yield row
+
+    # TODO: create sorted version
+    # TODO: include SQL style COUNT(field) to count non-NULL values
+
+    # Coalesce to a list if just one is specified
+    keys = prepare_key(key)
+    # FIXME: this ignores that `measures` is a list of tuples
+    measures = prepare_key(measures)
+
+    # Prepare output fields
+    out_fields = FieldList()
+    out_fields += obj.fields.fields(keys)
+
+    measure_fields = set()
+    measure_aggregates = []
+    for measure in measures:
+        if isinstance(measure, (str, Field)):
+            field = str(measure)
+            index = obj.fields.index(field)
+            aggregate = "sum"
+        elif isinstance(measure, (list, tuple)):
+            field = measure[0]
+            index = obj.fields.index(field)
+            aggregate = measure[1]
+
+        measure_aggregates.append( (field, index, aggregate) )
+        measure_fields.add(field)
+
+        field = obj.fields.field(measure)
+        field = field.clone(name="%s_%s" % (str(measure), aggregate),
+                            analytical_type="measure")
+        out_fields.append(field)
+
+    if include_count:
+        out_fields.append(Field(count_field,
+                            storage_type="integer",
+                            analytical_type="measure"))
+
+    if keys:
+        key_selectors = obj.fields.indexes(keys)
+    else:
+        key_selectors = []
+
+    keys = set()
+
+    # key -> list of aggregates
+    aggregates = {}
+
+    for row in obj.rows():
+        # Create aggregation key
+        key = tuple(row[s] for s in key_selectors)
+
+        # Create new aggregate record for key if it does not exist
+        #
+        try:
+            key_aggregate = aggregates[key]
+        except KeyError:
+            keys.add(key)
+            key_aggregate = []
+            for measure, index, function in measure_aggregates:
+                start = aggregation_functions[function].start
+                key_aggregate.append(start)
+            if include_count:
+                key_aggregate.append(0)
+
+            aggregates[key] = key_aggregate
+
+        for i, (measure, index, function) in enumerate(measure_aggregates):
+            func = aggregation_functions[function].func
+            key_aggregate[i] = func(key_aggregate[i], row[index])
+
+        if include_count:
+            key_aggregate[-1] += 1
+
+    iterator = aggregation_result(keys, aggregates, measure_aggregates)
+
+    return IterableDataSource(iterator, out_fields)
+
+
 #############################################################################
 # Field Operations
 
@@ -540,146 +682,6 @@ def basic_audit(ctx, iterable, distinct_threshold):
 #                         "both none at the same time.")
 #
 
-
-###
-# Simple and naive aggregation in Python
-
-def agg_sum(a, value):
-    return a+value
-
-def agg_average(a, value):
-    return (a[0]+1, a[1]+value)
-
-def agg_average_finalize(a):
-    return a[1]/a[0]
-
-AggregationFunction = namedtuple("AggregationFunction",
-                            ["func", "start", "finalize"])
-aggregation_functions = {
-            "sum": AggregationFunction(agg_sum, 0, None),
-            "min": AggregationFunction(min, 0, None),
-            "max": AggregationFunction(max, 0, None),
-            "average": AggregationFunction(agg_average, (0,0), agg_average_finalize)
-        }
-
-@operation("rows")
-def aggregate(ctx, obj, key, measures, include_count=True,
-              count_field="record_count"):
-    """Aggregates measure fields in `iterator` by `keys`. `fields` is a field
-    list of the iterator, `keys` is a list of fields that will be used as
-    keys. `aggregations` is a list of measures to be aggregated.
-
-    `measures` should be a list of tuples in form (`measure`, `aggregate`).
-    See `distill_measure_aggregates()` for how to convert from arbitrary list
-    of measures into this form.
-
-    Output of this iterator is an iterator that yields rows with fields that
-    contain: key fields, measures (as specified in the measures list) and
-    optional record count if `include_count` is ``True`` (default).
-
-    Result is not ordered even the input was ordered.
-
-    .. note:
-
-        This is naïve, pure Python implementation of aggregation. Might not
-        fit your expectations in regards of speed and memory consumption for
-        large datasets.
-    """
-
-    def aggregation_result(keys, aggregates, measure_aggregates):
-        # Pass results to output
-        for key in keys:
-            row = list(key[:])
-
-            key_aggregate = aggregates[key]
-            for i, (measure, index, function) in enumerate(measure_aggregates):
-                aggregate = key_aggregate[i]
-                finalize = aggregation_functions[function].finalize
-                if finalize:
-                    row.append(finalize(aggregate))
-                else:
-                    row.append(aggregate)
-
-            if include_count:
-                row.append(key_aggregate[-1])
-
-            yield row
-
-    # TODO: create sorted version
-    # TODO: include SQL style COUNT(field) to count non-NULL values
-
-    # Coalesce to a list if just one is specified
-    keys = prepare_key(key)
-    measures = prepare_key(measures)
-
-    # Prepare output fields
-    out_fields = FieldList()
-    out_fields += obj.fields.fields(keys)
-
-    measure_fields = set()
-    measure_aggregates = []
-    for measure in measures:
-        if isinstance(measure, (str, Field)):
-            field = str(measure)
-            index = obj.fields.index(field)
-            aggregate = "sum"
-        elif isinstance(measure, (list, tuple)):
-            field = measure[0]
-            index = obj.fields.index(field)
-            aggregate = measure[1]
-
-        measure_aggregates.append( (field, index, aggregate) )
-        measure_fields.add(field)
-
-        field = obj.fields.field(measure)
-        field = field.clone(name="%s_%s" % (str(measure), aggregate),
-                            analytical_type="measure")
-        out_fields.append(field)
-
-    if include_count:
-        out_fields.append(Field(count_field,
-                            storage_type="integer",
-                            analytical_type="measure"))
-
-    if keys:
-        key_selectors = obj.fields.indexes(keys)
-    else:
-        key_selectors = []
-
-    keys = set()
-
-    # key -> list of aggregates
-    aggregates = {}
-
-    for row in obj.rows():
-        # Create aggregation key
-        key = tuple(row[s] for s in key_selectors)
-
-        # Create new aggregate record for key if it does not exist
-        #
-        try:
-            key_aggregate = aggregates[key]
-        except KeyError:
-            keys.add(key)
-            key_aggregate = []
-            for measure, index, function in measure_aggregates:
-                start = aggregation_functions[function].start
-                key_aggregate.append(start)
-            if include_count:
-                key_aggregate.append(0)
-
-            aggregates[key] = key_aggregate
-
-        for i, (measure, index, function) in enumerate(measure_aggregates):
-            func = aggregation_functions[function].func
-            key_aggregate[i] = func(key_aggregate[i], row[index])
-
-        if include_count:
-            key_aggregate[-1] += 1
-
-    iterator = aggregation_result(keys, aggregates, measure_aggregates)
-
-    return IterableDataSource(iterator, out_fields)
 
 #############################################################################
 # Conversions

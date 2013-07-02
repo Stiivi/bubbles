@@ -1,6 +1,7 @@
 import functools
 from ...core import operation, RetryOperation
 from ...metadata import Field, FieldList, FieldFilter
+from ...metadata import prepare_aggregation_list
 from ...objects import IterableDataSource
 from ...errors import *
 from .utils import prepare_key, zip_condition, join_on_clause
@@ -187,6 +188,57 @@ def sort(ctx, statement, orderby):
                                    from_obj=statement,
                                    order_by=columns)
     return statement
+
+aggregation_functions = {
+    "sum": sql.functions.sum,
+    "min": sql.functions.min,
+    "max": sql.functions.max,
+    "count": sql.functions.count
+}
+
+
+@operation("sql")
+def aggregate(ctx, obj, key, measures, include_count=True,
+              count_field="record_count"):
+
+    """Aggregate `measures` by `key`"""
+
+    keys = prepare_key(key)
+    measures = prepare_aggregation_list(measures)
+
+    out_fields = FieldList()
+    out_fields += obj.fields.fields(keys)
+
+    statement = obj.sql_statement()
+    group = [statement.c[str(key)] for key in keys]
+
+    selection = [statement.c[str(key)] for key in keys]
+
+    for measure, agg_name in measures:
+        func = aggregation_functions[agg_name]
+        label = "%s_%s" % (str(measure), agg_name)
+        aggregation = func(obj.column(measure)).label(label)
+        selection.append(aggregation)
+
+        # TODO: make this a metadata function
+        field = obj.fields.field(measure)
+        field = field.clone(name=label, analytical_type="measure")
+        out_fields.append(field)
+
+    if include_count:
+        out_fields.append(Field(count_field,
+                            storage_type="integer",
+                            analytical_type="measure"))
+
+        count =  sql.functions.count(1).label(count_field)
+        selection.append(count)
+
+    statement = sql.expression.select(selection,
+                                      from_obj=statement,
+                                      group_by=group)
+
+    return obj.clone_statement(statement=statement, fields=out_fields)
+
 
 #############################################################################
 # Field Operations

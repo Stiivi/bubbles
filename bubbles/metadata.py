@@ -18,7 +18,8 @@ __all__ = [
     "storage_types",
     "analytical_types",
     "distill_aggregate_measures",
-    "prepare_key"
+    "prepare_key",
+    "prepare_aggregation_list"
 ]
 
 """Abstracted field storage types"""
@@ -333,6 +334,45 @@ class FieldList(object):
 
         return FieldList(*fields)
 
+    def aggregated_fields(self, aggregation_list, include_count=True,
+                          count_field="record_count"):
+        """Returns a `FieldList` containing fields after aggregations of
+        measures in the `aggregation_list`. The list should be a list of
+        tuples `(field, aggregtion)` and the `field` of the tuple should be in
+        the receiving `FieldList`. You can prepare the aggregation list using
+        the :func:`prepare_aggregation_list` function.
+
+        Resulting fields are cloned from the original fields and will have
+        analytical type set to ``measure``.
+
+        Example:
+
+        >>> agg_list = aggregation_list(['amount', ('discount', 'avg')])
+        >>> agg_fields = fields.aggregated_fields(agg_list)
+
+        Will return fields with names: `('amount_sum', 'discount_avg',
+        'record_count')`
+        """
+
+        agg_fields = FieldList()
+
+        for measure in measures:
+            if isinstance(measure, (str, Field)):
+                field = str(measure)
+                index = fields.index(field)
+                aggregate = "sum"
+            elif isinstance(measure, (list, tuple)):
+                field = measure[0]
+                index = fields.index(field)
+                aggregate = measure[1]
+
+            field = fields.field(measure)
+            field = field.clone(name="%s_%s" % (str(measure), aggregate),
+                                analytical_type="measure")
+            agg_fields.append(field)
+
+        return agg_fields
+
     def field(self, ref):
         """Return a field with name `ref` if `ref` is a string, or if it is an
         integer, returns a field at that index."""
@@ -575,4 +615,30 @@ def prepare_key(key):
 
     return tuple(str(f) for f in key)
 
+
+##
+# Various metadata helpers
+#
+
+def prepare_aggregation_list(measures):
+    """Coalesces list of measures for aggregation.  `measures` should be a
+    list of tuples `(field, aggregtion)`or just fields.  If just a field is
+    specified, then `sum` aggregation is assumed. Returns correct list of
+    tuples."""
+
+    result = []
+
+    if not isinstance(measures, (list, tuple, FieldList)):
+        measures = [measures]
+
+    for measure in measures:
+        if isinstance(measure, (str, Field)):
+            field = str(measure)
+            aggregate = "sum"
+        elif isinstance(measure, (list, tuple)):
+            field = measure[0]
+            aggregate = measure[1]
+        result.append( (field, aggregate) )
+
+    return result
 
