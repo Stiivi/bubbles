@@ -388,6 +388,14 @@ class CSVSource(DataObject):
         return True
 
 
+    def retained(self):
+        """Returns retained copy of the consumable"""
+        # Default implementation is naive: consumes whole CSV into Python
+        # memory
+        # TODO: decide whether source is seek-able or not
+
+        return RowListDataObject(list(self.rows()), self.fields)
+
 class CSVTarget(DataObject):
     """Comma separated values text file as a data target."""
 

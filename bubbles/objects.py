@@ -106,43 +106,48 @@ class DataObject(object):
         Subclasses might implement this method if necessary."""
         pass
 
-    @experimental
-    def dup(self, copies=1):
-        """Returns `copies` duplicates of the object. This method does not
-        create physical copy of the object, just returns duplicate Python
-        object with representations that can be used independently of the
-        original object.
+    def is_consumable(self):
+        """Returns `True` if the object is consumed when used, returns `False`
+        when object can be used indefinitely number of times."""
+        raise NotImplementedError("Data objects are required to implement "
+                                  "is_consumable() method")
 
-        For example, if the target object is an iterator, using `dup()` will
-        cause to return an object with same description but copy of the
-        iterator, therefore allowing to iterate same source twice.
+    def retained(self, count=1):
+        """Returns object's replacement which can be consumed `count` times.
+        Implementation of object retention depends on the backend.
+
+        For example default iterable data object consumes the rows into a list
+        and provides data object which wraps the list and deletes the list
+        after `count` number of uses.
 
         .. note::
 
-            Not all objects or all representations might be duplicated. Refer
+            If the object's retention policy is not appropriate for your task
+            (memory or time hungry), it is recommended to cache the object
+            content before consumption.
+
+        .. note::
+
+            Not all objects or all representations might be retained. Refer
             to particular object implementation for more information.
 
-        .. note::
-
-            Calling `dup()` might cause the recevier to change state,
-            depending on requirements imposed on the duplication. It is
-            recommended to create object's duplicates before actual evaluation
-            of the object's representations.
-
-        If you are implementing a data object, it is hightly recommended to
-        provide duplicates of all representations.
+        Default implementation returns the receiver if it is not consumable
+        and raises an exception if it is consumable. Consumable objects should
+        implement this method.
         """
-        raise NotImplementedError
+        if self.is_consumable():
+            return self
+        else:
+            raise NotImplementedError
+
+            # TODO: should we use this? Isn't it too dangerous to use this
+            # very naive and hungry implementation? It is definitely
+            # convenient.
+            #
+            # return RowListDataSource(self.rows(), self.fields)
 
     def __iter__(self):
         return self.rows()
-
-    def best_representation(self, reps, required_store=None):
-        """Returns best representation from list of representations `reps`. If
-        store is provided, then target must be from the same store, otherwise
-        an exception is raised.
-        """
-        pass
 
     def records(self):
         """Returns an iterator of records - dictionary-like objects that can
@@ -178,11 +183,6 @@ class DataObject(object):
         obj = IterableDataSource(iterator, self.fields)
         self.append_from(obj)
 
-    def initialize(self):
-        """Backward compatibility with the ds module streams. Does nothing."""
-        # FIXME: issue warning at some point
-        pass
-
     def as_source(self):
         """Returns version of the object that can be used as source. Subclasses
         might return an object that will raise exception on attempt to use
@@ -198,16 +198,6 @@ class DataObject(object):
 
         Default implementation returns the receiver."""
         return self
-
-    def is_reusable(self):
-        """Returns `True` if the object's representations can be used more
-        than once yielding the same result. Default is `False`"""
-        return False
-
-    # @required
-    # def filter(self, keep=None, drop=None, rename=None):
-    #    """Returns an object with filtered fields"""
-    #    return NotImplementedError
 
 
 def shared_representations(objects):
@@ -243,15 +233,6 @@ class IterableDataSource(DataObject):
         `rows`"""
         return ["rows", "records"]
 
-    def dup(self, copies=1):
-        iterables = itertools.tee(self.iterable, copies + 1)
-        self.iterable = iterables[0]
-
-        dups = []
-        for i in iterables[1:]:
-            dups.append(self.__class__(iterables[1:], self.fields))
-        return dups
-
     def rows(self):
         return iter(self.iterable)
 
@@ -260,6 +241,16 @@ class IterableDataSource(DataObject):
 
     def is_consumable(self):
         return True
+
+    def retained(self, retain_count=1):
+        """Returns retained replacement of the receiver. Default
+        implementation consumes the iterator into a list and returns a data
+        object wrapping the list, which might leave big memory footprint on
+        larger datasets. In this case it is recommended to explicitly cache
+        the consumable object using other means.
+        """
+
+        return RowListDataSource(list(self.iterable), self.fields)
 
     def filter(self, keep=None, drop=None, rename=None):
         """Returns another iterable data source with filtered fields"""
@@ -275,6 +266,7 @@ class IterableDataSource(DataObject):
             iterator = self.iterable
 
         return IterableDataSource(iterator, fields)
+
 
 class IterableRecordsDataSource(IterableDataSource):
     """Wrapped Python iterator that serves as data source. The iterator should
