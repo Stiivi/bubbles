@@ -10,6 +10,7 @@ import functools
 import operator
 from collections import OrderedDict, namedtuple
 import sys
+import datetime
 
 # FIXME: add cheaper version for already sorted data
 # FIXME: BasicAuditProbe was removed
@@ -96,24 +97,58 @@ def filter_by_set(ctx, iterator, field, values, discard=False):
     return filter(predicate, iterator)
 
 @operation("rows")
+@unary_iterator
+def filter_by_range(ctx, iterator, field, low, high, discard=False):
+    """Select rows where value of `field` belongs to the set of `values`. If
+    `discard` is ``True`` then the matching rows are discarded instead
+    (operation is inverted)."""
+    fields = iterator.fields
+    index = fields.index(field)
+
+    if discard:
+        predicate = lambda row: not (low <= row[index] < high)
+    else:
+        predicate = lambda row: low <= row[index] < high
+
+    return filter(predicate, iterator)
+
+@operation("rows")
+@unary_iterator
+def filter_not_empty(ctx, iterator, field):
+    """Select rows where value of `field` is not None"""
+
+    fields = iterator.fields
+    index = fields.index(field)
+
+    predicate = lambda row: row[index] is not None
+
+    return filter(predicate, iterator)
+
+
+@operation("rows")
+@unary_iterator
 def filter_by_predicate(ctx, obj, predicate, fields, discard=False,
                         **kwargs):
     """Returns an interator selecting fields where `predicate` is true.
     `predicate` should be a python callable. `arg_fields` are names of fields
     to be passed to the function (in that order). `kwargs` are additional key
     arguments to the predicate function."""
-    indexes = obj.fields.indexes(fields)
-    row_filter = FieldFilter(keep=fields).row_filter(obj.fields)
 
-    for row in iter(obj):
-        values = [row[index] for index in indexes]
-        flag = predicate(*values, **kwargs)
-        if (flag and not discard) or (not flag and discard):
-            yield row
+    def iterator(indexes):
+        for row in iter(obj):
+            values = [row[index] for index in indexes]
+            flag = predicate(*values, **kwargs)
+            if (flag and not discard) or (not flag and discard):
+                yield row
+
+    key = prepare_key(fields)
+    indexes = obj.fields.indexes(key)
+
+    return iterator(indexes)
 
 
-@operation("records")
-def filter_by_predicate(ctx, iterator, predicate, fields, discard=False,
+@operation("records", name="filter_by_predicate")
+def filter_by_predicate_records(ctx, iterator, predicate, fields, discard=False,
                         **kwargs):
     """Returns an interator selecting fields where `predicate` is true.
     `predicate` should be a python callable. `arg_fields` are names of fields
@@ -448,8 +483,12 @@ def dates_to_dimension(ctx, obj, fields=None, unknown_date=0):
     def iterator(indexes):
         for row in obj.rows():
             row = list(row)
+
             for index in indexes:
                 row[index] = row[index].strftime("%Y%m%d")
+
+            yield row
+
     if fields:
         date_fields = obj.fields(fields)
     else:
@@ -469,6 +508,68 @@ def dates_to_dimension(ctx, obj, fields=None, unknown_date=0):
 
     return IterableDataSource(iterator(indexes), fields)
 
+
+@operation("rows")
+def string_to_date(ctx, obj, fields, fmt="%Y-%m-%dT%H:%M:%S.Z"):
+    def iterator(indexes):
+        for row in obj.rows():
+            row = list(row)
+            for index in indexes:
+                try:
+                    value = datetime.datetime.strptime(row[index], fmt)
+                except ValueError:
+                    value = None
+
+                row[index] = value
+            yield row
+
+    date_fields = prepare_key(fields)
+    indexes = obj.fields.indexes(date_fields)
+
+    # Prepare output fields
+    fields = FieldList()
+    for field in obj.fields:
+        if str(field) in date_fields:
+            fields.append(field.clone(storage_type="date",
+                                      concrete_storage_type=None))
+        else:
+            fields.append(field.clone())
+
+    return IterableDataSource(iterator(indexes), fields)
+
+@operation("rows")
+def extract_date(ctx, obj, fields, parts=["year", "month", "day"]):
+    """Extract `parts` from date objects"""
+
+    def iterator(indexes):
+        for row in obj.rows():
+            new_row = []
+            for i, value in enumerate(row):
+                if i in indexes:
+                    for part in parts:
+                        new_row.append(getattr(value, part))
+                else:
+                    new_row.append(value)
+
+            yield new_row
+
+    date_fields = prepare_key(fields)
+
+    indexes = obj.fields.indexes(date_fields)
+
+    # Prepare output fields
+    fields = FieldList()
+    proto = Field(name="p", storage_type="integer", analytical_type="ordinal")
+
+    for field in obj.fields:
+        if str(field) in date_fields:
+            for part in parts:
+                name = "%s_%s" % (str(field), part)
+                fields.append(proto.clone(name=name))
+        else:
+            fields.append(field.clone())
+
+    return IterableDataSource(iterator(indexes), fields)
 
 @operation("rows")
 @unary_iterator
