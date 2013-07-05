@@ -83,11 +83,11 @@ class SourceNode(NodeBase):
         except KeyError:
             raise ArgumentError("Unknown store %s" % store)
 
-        return store.get_object(obj, **parameters)
+        return store.get_object(self.objname, **self.parameters)
 
 
     def __str__(self):
-        return "soure %s in %s" % (objname, store)
+        return "soure %s in %s" % (self.objname, self.store)
 
 class ObjectNode(NodeBase):
     def __init__(self, obj):
@@ -122,7 +122,7 @@ class CreateObjectNode(NodeBase):
         except KeyError:
             raise ArgumentError("Unknown store %s" % self.store)
 
-        target = store.create(self.name, fields=source.fields,
+        target = store.create(self.name, source.fields,
                               *self.args, **self.kwargs)
         target.append_from(source)
 
