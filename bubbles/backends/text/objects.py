@@ -45,10 +45,15 @@ CSVData = namedtuple("CSVData", ["handle", "dialect", "encoding", "fields"])
 # TODO: handle empty strings as NULLs
 
 class CSVStore(DataStore):
-    def __init__(self, path, extension=".csv", **kwargs):
+    def __init__(self, path, extension=".csv", role=None, **kwargs):
         super(CSVStore, self).__init__()
         self.path = path
         self.extension = extension
+        if role:
+            self.role = role.lower
+        else:
+            self.role = "source"
+
         self.kwargs = kwargs
 
     def get_object(self, name):
@@ -57,8 +62,13 @@ class CSVStore(DataStore):
         if not name.endswith(self.extension):
             name = name + self.extension
         path = os.path.join(self.path, name)
-        return CSVSource(path, **self.kwargs)
 
+        if self.role in ["s", "src", "source"]:
+            return CSVSource(path, **self.kwargs)
+        elif self.role in ["t", "target"]:
+            return CSVTarget(path, **self.kwargs)
+        else:
+            raise ArgumentError("Unknown CSV object role '%s'" % role)
 
 class CSVSource(DataObject):
     """Comma separated values text file as a data source."""
