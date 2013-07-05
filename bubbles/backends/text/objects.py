@@ -59,8 +59,7 @@ class CSVStore(DataStore):
     def get_object(self, name):
         """Returns a CSVSource object with filename constructed from store's
         path and extension"""
-        if not name.endswith(self.extension):
-            name = name + self.extension
+        name = name + self.extension
         path = os.path.join(self.path, name)
 
         if self.role in ["s", "src", "source"]:
@@ -69,6 +68,14 @@ class CSVStore(DataStore):
             return CSVTarget(path, **self.kwargs)
         else:
             raise ArgumentError("Unknown CSV object role '%s'" % role)
+
+    def create(self, name, fields, replace=False):
+        """Create a file"""
+        name = name + self.extension
+        path = os.path.join(self.path, name)
+
+        target = CSVTarget(path, fields=fields, truncate=True)
+        return target
 
 class CSVSource(DataObject):
     """Comma separated values text file as a data source."""
@@ -327,7 +334,9 @@ class CSVSource(DataObject):
         fields = FieldList()
 
         for name, types in zip(field_names, types):
-            if "integer"in types:
+            if "string" in types:
+                t = "string"
+            elif "integer"in types:
                 t = "integer"
             elif "float" in types:
                 t = "float"
@@ -350,14 +359,6 @@ class CSVSource(DataObject):
 
         if not any(self.converters):
             self.converters = None
-
-    def detect_field_types(self, sample_size=1000):
-        """Read `sample_size` rows from the sourcce and detect field types.
-        Works with sources that have `seek()` defined (like file, but not from
-        URL source). This method does not rewind the stream - it consumes the
-        tested rows."""
-
-        pass
 
     def release(self):
         if self.handle and self.close_file:
@@ -465,14 +466,14 @@ class CSVTarget(DataObject):
 
         if self.write_headers:
             if not self.fields:
-                raise bubblesError("No fields provided")
+                raise BubblesError("No fields provided")
             self.writer.writerow(self.fields.names())
 
         self.field_names = self.fields.names()
 
     def __del__(self):
-        if self.file and self.close_file:
-            self.file.close()
+        if self.handle and self.close_file:
+            self.handle.close()
 
     def append(self, row):
         self.writer.writerow(row)
