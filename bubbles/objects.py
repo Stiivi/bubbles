@@ -7,7 +7,7 @@
 from .errors import *
 from .extensions import *
 from .metadata import *
-from .doc import required, experimental
+from .dev import required, experimental
 
 __all__ = [
         "DataObject",
