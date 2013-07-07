@@ -25,7 +25,7 @@ proper use of operations.
 Uses
 ====
 
-When you might consider using brewery?
+When you might consider using bubbles?
 
 * data integration
 * data cleansing
