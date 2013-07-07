@@ -209,8 +209,7 @@ class SQLDataStore(DataStore):
     _ns_object_name = "sql"
 
     def __init__(self, url=None, connectable=None, schema=None,
-            concrete_type_map=None, reuse_engine=False,
-            sqlalchemy_options=None):
+            concrete_type_map=None, sqlalchemy_options=None):
         """Opens a SQL data store.
 
         * `url` – connection URL (see SQLAlchemy documentation for more
@@ -244,6 +243,14 @@ class SQLDataStore(DataStore):
         self.metadata = sqlalchemy.MetaData(bind=self.connectable)
         self.schema = schema
         self.logger = get_logger()
+
+    def clone(self, schema=None, concrete_type_map=None):
+        store = SQLDataStore(connectable=self.connectable,
+                             schema=schema or self.schema,
+                             concrete_type_map=concrete_type_map or
+                                                     self.concrete_type_map
+                             )
+        return store
 
     def objects(self, names=None):
         """Return list of tables and views.
