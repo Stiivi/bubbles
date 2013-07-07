@@ -121,6 +121,19 @@ def filter_by_range(ctx, obj, key, from_value, to_value, discard=False):
 
 
 @operation("sql")
+def filter_not_empty(ctx, obj, field):
+    statement = obj.sql_statement()
+
+    column = statement.c[str(field)]
+    condition = column != None
+    selection = obj.columns()
+
+    statement = sql.expression.select(selection, from_obj=statement,
+                                            whereclause=condition)
+
+    return obj.clone_statement(statement=statement)
+
+@operation("sql")
 def filter_by_predicate(ctx, obj, fields, predicate, discard=False):
     raise RetryOperation(["rows"], reason="Not implemented")
 
@@ -301,6 +314,64 @@ def dates_to_dimension(ctx, obj, fields=None, unknown_date=0):
 
     # TODO: mark date fields to be integers
     return obj.clone_statement(statement=statement, fields=fields)
+
+@operation("sql")
+def split_date(ctx, obj, fields, parts=["year", "month", "day"]):
+    """Extract `parts` from date objects replacing the original date field
+    with parts field."""
+
+    statement = obj.sql_statement()
+    date_fields = prepare_key(fields)
+
+    # Validate date fields
+    for f in obj.fields.fields(date_fields):
+        if f.storage_type != "date":
+            raise FieldError("Field '%s' is not a date field" % f)
+
+    # Prepare output fields
+    fields = FieldList()
+    proto = Field(name="p", storage_type="integer", analytical_type="ordinal")
+
+    selection = []
+
+    for field in obj.fields:
+        name = str(field)
+        col = statement.c[name]
+        if name in date_fields:
+            for part in parts:
+                label = "%s_%s" % (str(field), part)
+                fields.append(proto.clone(name=label))
+                col_part = sql.expression.extract(part, col)
+                col_part = col_part.label(label)
+                selection.append(col_part)
+        else:
+            fields.append(field.clone())
+            selection.append(col)
+
+    statement = sql.expression.select(selection,
+                                      from_obj=statement)
+
+    return obj.clone_statement(statement=statement, fields=fields)
+
+# @operation("sql")
+# def string_to_date(ctx, obj, fields, fmt="%Y-%m-%dT%H:%M:%S.Z"):
+# 
+#     date_fields = prepare_key(fields)
+# 
+#     selection = []
+#     # Prepare output fields
+#     fields = FieldList()
+#     for field in obj.fields:
+#         col = statement.c[str(field)]
+#         if str(field) in date_fields:
+#             fields.append(field.clone(storage_type="date",
+#                                       concrete_storage_type=None))
+# 
+#         else:
+#             fields.append(field.clone())
+#         selection.append(col)
+# 
+#     return IterableDataSource(iterator(indexes), fields)
 
 
 #############################################################################
