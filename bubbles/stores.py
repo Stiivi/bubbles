@@ -35,6 +35,12 @@ class DataStore(object):
     def close(self):
         pass
 
+    def clone(self, *args, **kwargs):
+        """Returns a clone of the store with different options. Objects coming
+        from cloned store might be composable with objects in the original
+        store."""
+        raise NotImplementedError
+
     def object_names(self):
         """Returns list of all object names contained in the store"""
         raise NotImplementedError
