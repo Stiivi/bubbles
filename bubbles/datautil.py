@@ -77,3 +77,4 @@ def collapse_record(record, separator = '.', root = None):
             result[collapsed_key] = value
     return
 
+

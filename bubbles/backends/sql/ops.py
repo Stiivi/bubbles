@@ -91,8 +91,6 @@ def field_filter(ctx, obj, keep=None, drop=None, rename=None):
 def filter_by_value(ctx, src, key, value, discard=False):
     """Returns difference between left and right statements"""
 
-    # FIXME: add composition checking
-
     if isinstance(key, (list, tuple)) and \
                     not isinstance(value, (list, tuple)):
         raise ArgumentError("If key is compound then value should be as well")
@@ -111,12 +109,23 @@ def filter_by_value(ctx, src, key, value, discard=False):
 
 
 @operation("sql")
-def filter_by_set(ctx, obj, key, value_set, discard=False):
-    raise RetryOperation(["rows"], reason="Not implemented")
+def filter_by_range(ctx, src, key, low, high, discard=False):
+    """Returns difference between left and right statements"""
+
+    statement = src.sql_statement()
+    cond = sql.expression.between(statement.c[str(key)], low, high)
+
+    statement = sql.expression.select(statement.columns,
+                                      from_obj=statement,
+                                      whereclause=cond)
+
+    # TODO: remove this in newer SQLAlchemy version
+    statement = statement.alias("__range_filter")
+    return src.clone_statement(statement=statement)
 
 
 @operation("sql")
-def filter_by_range(ctx, obj, key, from_value, to_value, discard=False):
+def filter_by_set(ctx, obj, key, value_set, discard=False):
     raise RetryOperation(["rows"], reason="Not implemented")
 
 
