@@ -6,6 +6,7 @@ from .objects import *
 from .extensions import get_namespace, collect_subclasses
 from .common import get_logger
 from collections import defaultdict, namedtuple, UserList
+from .dev import is_experimental
 
 import itertools
 import inspect
@@ -438,6 +439,9 @@ class OperationContext(object):
         # number of retries will be number of operations in the list.
 
         try:
+            if is_experimental(op.function):
+                self.logger.warn("operation %s is experimental" % \
+                                    op_name)
             result = op.function(self, *args, **kwargs)
         except RetryOperation as e:
             signature = e.signature
