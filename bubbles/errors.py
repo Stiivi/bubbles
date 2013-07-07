@@ -78,3 +78,7 @@ class RetryError(BubblesError):
 
 class GraphError(BubblesError):
     pass
+
+class FieldError(BubblesError):
+    """Raised when wrong field types are passed to an operation."""
+    pass
