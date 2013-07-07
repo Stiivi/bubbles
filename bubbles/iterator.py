@@ -5,6 +5,7 @@ from .common import get_logger
 from .errors import *
 from .core import operation
 from .objects import *
+from .dev import experimental
 import itertools
 import functools
 import operator
@@ -465,7 +466,7 @@ def aggregate(ctx, obj, key, measures, include_count=True,
 
 
 @operation("rows")
-def append_contant_fields(ctx, obj, fields, value):
+def append_constant_fields(ctx, obj, fields, value):
     def iterator(constants):
         for row in obj.rows():
             yield list(row) + constants
@@ -510,15 +511,19 @@ def dates_to_dimension(ctx, obj, fields=None, unknown_date=0):
 
 
 @operation("rows")
+@experimental
 def string_to_date(ctx, obj, fields, fmt="%Y-%m-%dT%H:%M:%S.Z"):
     def iterator(indexes):
         for row in obj.rows():
             row = list(row)
             for index in indexes:
-                try:
-                    value = datetime.datetime.strptime(row[index], fmt)
-                except ValueError:
-                    value = None
+                date_str = row[index]
+                value = None
+                if date_str:
+                    try:
+                        value = datetime.datetime.strptime(row[index], fmt)
+                    except ValueError:
+                        pass
 
                 row[index] = value
             yield row
@@ -538,7 +543,7 @@ def string_to_date(ctx, obj, fields, fmt="%Y-%m-%dT%H:%M:%S.Z"):
     return IterableDataSource(iterator(indexes), fields)
 
 @operation("rows")
-def extract_date(ctx, obj, fields, parts=["year", "month", "day"]):
+def split_date(ctx, obj, fields, parts=["year", "month", "day"]):
     """Extract `parts` from date objects"""
 
     def iterator(indexes):
