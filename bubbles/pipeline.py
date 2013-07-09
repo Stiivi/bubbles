@@ -1,12 +1,13 @@
 from .errors import *
 from .core import default_context
+from .graph import *
 
 __all__ = [
-            "ImmediatePipeline"
+            "Pipeline"
         ]
 
-class ImmediatePipeline(object):
-    def __init__(self, stores=None, context=None, obj=None):
+class Pipeline(object):
+    def __init__(self, stores=None, context=None, graph=None):
         """Creates a new pipeline with `context` and sets current object to
         `obj`. If no context is provided, default one is used.
 
@@ -22,88 +23,146 @@ class ImmediatePipeline(object):
             p.distinct("city")
 
             p.create("default", "cities")
+            p.run()
         """
         self.context = context or default_context
-        self.result = obj
         self.stores = stores or {}
+        self.graph = graph or Graph()
 
-    def source(self, obj, store=None, **kwargs):
-        """Sets an object `obj` from store `store` as
-        source of the pipeline. If `obj` is a name, then `store` is required,
-        if `obj` is actual object, then store should not be specified.
-        Pipeline should be empty – no existing resul should be present."""
+        self.node = None
 
-        if self.result is not None:
-            raise BubblesError("Can not set pipeline source: result already "
-                                "exists (%s). Use new pipeline." %
-                                type(self.result))
+    def source(self, store, objname, **params):
+        """Appends a source node to an empty pipeline. The source node will
+        reference an object `objname` in store `store`. The actual object will
+        be fetched during execution."""
 
-        if isinstance(obj, str):
-            if isinstance(store, str):
-                try:
-                    store = self.stores[store]
-                except KeyError:
-                    raise ArgumentError("Unknown store %s" % store)
-            self.result = store.get_object(obj, *args, **kwargs)
-        else:
-            if store:
-                raise ArgumentError("Both actual object and store specified, "
-                                    "you can use store only with object "
-                                    "name")
-            self.result = obj
+        if self.node is not None:
+            raise BubblesError("Can not set pipeline source: there is already "
+                                "a node. Use new pipeline.")
+
+        self.node = SourceNode(store, objname, **params)
+        self.graph.add(self.node)
 
         return self
 
+    def source_object(self, obj, **params):
+        """If `obj` is a data object, then it is set as source. If `obj` is a
+        string, then it is considered as a factory and object is obtained
+        using :fun:`data_object` with `params`"""
+        if self.node is not None:
+            raise BubblesError("Can not set pipeline source: there is already "
+                                "a node. Use new pipeline.")
 
-    def create(self, obj, store=None, **kwargs):
-        """Create new object `obj_name` in store `store_name` using current
-        result object's fields and data. If no result exists an exception is
-        raised. Result will be newly created target."""
+        if isinstance(obj, str):
+            node = FactorySourceNode(obj, **params)
+        else:
+            if params:
+                raise ArgumentError("params should not be specified if "
+                                    "object is provided.")
+            node = ObjectNode(obj)
 
-        if self.result is None:
-            raise BubblesError("Pipeline has no result for new target object")
+        self.graph.add(node)
+        self.node = node
 
-        if isinstance(store, str):
-            try:
-                store = self.stores[store]
-            except KeyError:
-                raise ArgumentError("Unknown store %s" % store)
+        return self
 
-        target = store.create(obj, fields=self.result.fields, **kwargs)
-        target.append_from(self.result)
-        self.result = target
+    def create(self, store, name, *args, **kwargs):
+        """Create new object `name` in store `name`. """
 
-    def append_into(self, store_name, obj_name, *args, **kwargs):
-        """Appends data into object `obj_name` in store `store_name`. Result
-        object will be the target."""
+        node = CreateObjectNode(store, name, *args, **kwargs)
+        self._append_node(node)
 
-        if self.result is None:
-            raise BubblesError("Pipeline has no result for a target object")
-        try:
-            store = self.stores[store_name]
-        except KeyError:
-            raise ArgumentError("Unknown store %s" % store_name)
-
-        target = store.get_object(obj_name, *args, **kwargs)
-        target.append_from(self.result)
-        self.result = target
-
-    def fork(self):
-        """Forks current pipeline. Returns a new pipeline with same actual
-        object as the receiver."""
-        fork = Pipeline(self.stores, self.context, self.result)
-        return fork
+        return self
 
     def __getattr__(self, name):
-        return _PipelineStep(self, name, self.context)
+        """Adds operation node into the stream"""
 
-class _PipelineStep(object):
-    def __init__(self, pipeline, opname, obj):
+        return _PipelineOperation(self, name)
+
+    def fork(self, empty=None):
+        """Forks the current pipeline. If `empty` is ``True`` then the forked
+        fork has no node set and might be used as source."""
+        fork = Pipeline(self.stores, self.context, self.graph)
+
+        # TODO: make the node non-consumable
+        if not empty:
+            fork.node = self.node
+
+        return fork
+
+    def _append_node(self, node, outlet="default"):
+        """Appends a node to the pipeline stream. The new node becomes actual
+        node."""
+
+        node_id = self.graph.add(node)
+        if self.node:
+            self.graph.connect(self.node, node, outlet)
+        self.node = node
+
+        return self
+
+    def run(self, context=None):
+        """Runs the pipeline in Pipeline's context. If `context` is provided
+        it overrides the default context."""
+
+        context = context or self.context
+        engine = ExecutionEngine(context=context, stores=self.stores)
+        engine.run(self.graph)
+
+
+class _PipelineOperation(object):
+    def __init__(self, pipeline, opname):
+        """Creates a temporary object that will append an operation to the
+        pipeline"""
         self.pipeline = pipeline
-        self.op = self.pipeline.context.operation(opname)
         self.opname = opname
-        self.obj = obj
 
     def __call__(self, *args, **kwargs):
-        self.pipeline.result = self.op(self.pipeline.result, *args, **kwargs)
+        """Appends an operation (previously stated) with called arguments as
+        operarion's parameters"""
+        # FIXME: works only with unary operations, otherwise undefined
+        # TODO: make this work with binary+ operations
+        #
+        #
+        # Dev note:
+        # – `operands` might be either a node - received throught
+        # pipeline.node or it might be a pipeline forked from the receiver
+
+        prototype = self.pipeline.context.operation_prototype(self.opname)
+
+        if prototype.operand_count == 1:
+            # Unary operation
+            node = Node(self.opname, *args, **kwargs)
+            self.pipeline._append_node(node)
+
+        else:
+            # n-ary operation. Take operands from arguments. There is one less
+            # - the one that is just being created by this function as default
+            # operand within the processing pipeline.
+
+            operands = args[0:prototype.operand_count-1]
+            args = args[prototype.operand_count-1:]
+
+            # Get name of first (pipeline default) outlet and rest of the
+            # operand outlets
+            firstoutlet, *restoutlets = prototype.operands
+
+            # Pipeline node - default
+            node = Node(self.opname, *args, **kwargs)
+            self.pipeline._append_node(node, firstoutlet)
+
+            # All operands should be pipeline objects with a node
+            if not all(isinstance(o, Pipeline) for o in operands):
+                raise BubblesError("All operands should come from a Pipeline")
+
+            # Operands are expected to be pipelines forked from this one
+            for outlet, operand in zip(restoutlets, operands):
+                # Take current node of the "operand pipeline"
+                src_node = operand.node
+
+                # ... and connect it to the outlet of the currently created
+                # node
+                self.pipeline.graph.connect(src_node, node, outlet)
+
+        return self.pipeline
 
