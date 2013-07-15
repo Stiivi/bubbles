@@ -24,10 +24,20 @@ class Pipeline(object):
 
             p.create("default", "cities")
             p.run()
+
+
+        .. note::
+
+            You can set the `engine_class` variable to your own custom
+            execution engine class with custom execution policy.
+
         """
         self.context = context or default_context
         self.stores = stores or {}
         self.graph = graph or Graph()
+
+        # Set default execution engine
+        self.engine_class = ExecutionEngine
 
         self.node = None
 
@@ -106,7 +116,7 @@ class Pipeline(object):
         it overrides the default context."""
 
         context = context or self.context
-        engine = ExecutionEngine(context=context, stores=self.stores)
+        engine = self.engine_class(context=context, stores=self.stores)
         engine.run(self.graph)
 
 
