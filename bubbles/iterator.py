@@ -66,15 +66,12 @@ def filter_by_value(ctx, iterator, key, value, discard=False):
     (operation is inverted)."""
 
     fields = iterator.fields
-    index = fields.index(field)
-
-    # Convert the values to more efficient set
-    values = set(values)
+    index = fields.index(str(key))
 
     if discard:
-        predicate = lambda row: row[index] not in values
+        predicate = lambda row: row[index] != value
     else:
-        predicate = lambda row: row[index] in values
+        predicate = lambda row: row[index] == value
 
     return filter(predicate, iterator)
 
@@ -314,6 +311,8 @@ discard_nth_records = operation("records", name="discard_nth")(discard_nth_base)
 @unary_iterator
 def sort(ctx, obj, orderby):
     iterator = obj.rows()
+
+    orderby = prepare_order_list(orderby)
 
     for field, order in reversed(orderby):
         index = obj.fields.index(field)
