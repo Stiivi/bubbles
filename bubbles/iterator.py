@@ -100,16 +100,28 @@ def filter_by_set(ctx, iterator, field, values, discard=False):
 @operation("rows")
 @unary_iterator
 def filter_by_range(ctx, iterator, field, low, high, discard=False):
-    """Select rows where value of `field` belongs to the set of `values`. If
+    """Select rows where value `low` <= `field` <= `high`. If
     `discard` is ``True`` then the matching rows are discarded instead
-    (operation is inverted)."""
+    (operation is inverted). To check only agains one boundary set the other
+    to ``None``. Equivalend of SQL ``BETWEEN``"""
+
     fields = iterator.fields
     index = fields.index(field)
 
     if discard:
-        predicate = lambda row: not (low <= row[index] < high)
+        if high is None and low is not None:
+            predicate = lambda row: not (low <= row[index])
+        elif low is None and high is not None:
+            predicate = lambda row: not (row[index] <= high)
+        else:
+            predicate = lambda row: not (low <= row[index] <= high)
     else:
-        predicate = lambda row: low <= row[index] < high
+        if high is None and low is not None:
+            predicate = lambda row: low <= row[index]
+        elif low is None and high is not None:
+            predicate = lambda row: row[index] <= high
+        else:
+            predicate = lambda row: low <= row[index] <= high
 
     return filter(predicate, iterator)
 
@@ -341,7 +353,7 @@ aggregation_functions = {
         }
 
 @operation("rows")
-def aggregate(ctx, obj, key, measures, include_count=True,
+def aggregate(ctx, obj, key, measures=None, include_count=True,
               count_field="record_count"):
     """Aggregates measure fields in `iterator` by `keys`. `fields` is a field
     list of the iterator, `keys` is a list of fields that will be used as
@@ -389,8 +401,10 @@ def aggregate(ctx, obj, key, measures, include_count=True,
     # Coalesce to a list if just one is specified
     keys = prepare_key(key)
     # FIXME: this ignores that `measures` is a list of tuples
-    measures = prepare_key(measures)
-
+    if measures:
+        measures = prepare_key(measures)
+    else:
+        measures = []
     # Prepare output fields
     out_fields = FieldList()
     out_fields += obj.fields.fields(keys)
@@ -860,3 +874,21 @@ def as_dict(ctx, obj, key=None, value=None):
     else:
         raise NotImplementedError("Specific composite value is not implemented")
     return d
+
+
+#############################################################################
+# Any
+
+# TODO: not actually iterator ops. They should be moved into a separate file
+# later
+
+@operation("*")
+def debug_fields(ctx, obj, label=None):
+    if label:
+        label = " (%s)" % label
+    else:
+        label = ""
+
+    ctx.logger.info("fields%s: %s" % (label, obj.fields))
+    return obj
+
