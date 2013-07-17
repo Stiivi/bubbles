@@ -250,7 +250,7 @@ class IterableDataSource(DataObject):
         the consumable object using other means.
         """
 
-        return RowListDataSource(list(self.iterable), self.fields)
+        return RowListDataObject(list(self.iterable), self.fields)
 
     def filter(self, keep=None, drop=None, rename=None):
         """Returns another iterable data source with filtered fields"""
