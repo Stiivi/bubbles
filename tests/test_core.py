@@ -268,6 +268,49 @@ class KernelTestCase(unittest.TestCase):
         with self.assertRaises(RetryError):
             result = c.o.endless(local, local)
 
+    def test_retry_nested(self):
+        """Test whether failed nested operation fails correctly (Because of
+        Issue #4)."""
+
+        @operation("sql")
+        def aggregate(ctx, obj, fail):
+            if fail:
+                raise RetryOperation(["rows"])
+            else:
+                obj.data += "-SQL-"
+            return obj
+
+        @operation("rows", name="aggregate")
+        def aggregate_rows(ctx, obj, fail):
+            obj.data += "-ROWS-"
+            return obj
+
+        @operation("sql")
+        def window_aggregate(ctx, obj, fail):
+            obj.data += "START"
+            ctx.o.aggregate(obj, fail)
+            obj.data += "END"
+
+        c = OperationContext()
+        c.add_operation(aggregate)
+        c.add_operation(aggregate_rows)
+        c.add_operation(window_aggregate)
+
+        # Expected order:
+        # 1. window_aggregate is called
+        # 2. sql aggregate is called, but fails
+        # 3. row aggregate is called
+        # 4. window aggregate continues
+
+        obj = DummyDataObject(["sql"], "")
+
+        c.o.window_aggregate(obj, fail=True)
+        self.assertEqual("START-ROWS-END", obj.data)
+
+        obj.data = ""
+        c.o.window_aggregate(obj, fail=False)
+        self.assertEqual("START-SQL-END", obj.data)
+
     def test_priority(self):
         objsql = DummyDataObject(["sql", "rows"])
         objrows = DummyDataObject(["rows", "sql"])
