@@ -400,11 +400,12 @@ def aggregate(ctx, obj, key, measures=None, include_count=True,
 
     # Coalesce to a list if just one is specified
     keys = prepare_key(key)
-    # FIXME: this ignores that `measures` is a list of tuples
+
     if measures:
-        measures = prepare_key(measures)
+        measures = prepare_aggregation_list(measures)
     else:
         measures = []
+
     # Prepare output fields
     out_fields = FieldList()
     out_fields += obj.fields.fields(keys)
@@ -412,20 +413,15 @@ def aggregate(ctx, obj, key, measures=None, include_count=True,
     measure_fields = set()
     measure_aggregates = []
     for measure in measures:
-        if isinstance(measure, (str, Field)):
-            field = str(measure)
-            index = obj.fields.index(field)
-            aggregate = "sum"
-        elif isinstance(measure, (list, tuple)):
-            field = measure[0]
-            index = obj.fields.index(field)
-            aggregate = measure[1]
+        name = measure[0]
+        index = obj.fields.index(name)
+        aggregate = measure[1]
 
-        measure_aggregates.append( (field, index, aggregate) )
-        measure_fields.add(field)
+        measure_aggregates.append( (name, index, aggregate) )
+        measure_fields.add(name)
 
-        field = obj.fields.field(measure)
-        field = field.clone(name="%s_%s" % (str(measure), aggregate),
+        field = obj.fields.field(name)
+        field = field.clone(name="%s_%s" % (name, aggregate),
                             analytical_type="measure")
         out_fields.append(field)
 
@@ -881,6 +877,21 @@ def as_dict(ctx, obj, key=None, value=None):
 
 # TODO: not actually iterator ops. They should be moved into a separate file
 # later
+
+@operation("*")
+@experimental
+def rename_fields(ctx, obj, rename):
+    return ctx.o.field_filter(obj, rename=rename)
+
+@operation("*")
+@experimental
+def drop_fields(ctx, obj, drop):
+    return ctx.o.field_filter(obj, drop=drop)
+
+@operation("*")
+@experimental
+def drop_fields(ctx, obj, keep):
+    return ctx.o.field_filter(obj, keep=keep)
 
 @operation("*")
 def debug_fields(ctx, obj, label=None):
