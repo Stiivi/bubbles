@@ -238,7 +238,7 @@ def aggregate(ctx, obj, key, measures=None, include_count=True,
     keys = prepare_key(key)
 
     if measures:
-        measures = prepare_key(measures)
+        measures = prepare_aggregation_list(measures)
     else:
         measures = []
 
