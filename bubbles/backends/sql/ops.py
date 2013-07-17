@@ -109,11 +109,21 @@ def filter_by_value(ctx, src, key, value, discard=False):
 
 
 @operation("sql")
-def filter_by_range(ctx, src, key, low, high, discard=False):
-    """Returns difference between left and right statements"""
+def filter_by_range(ctx, src, field, low, high, discard=False):
+    """Filter by range: field should be between low and high."""
 
     statement = src.sql_statement()
-    cond = sql.expression.between(statement.c[str(key)], low, high)
+    key_column = statement.c[str(key)]
+
+    if low is not None and high is None:
+        cond = key_column >= low
+    elif high is not None and low is None:
+        cond = key_column < high
+    else:
+        cond = sql.expression.between(key_column, low, high)
+
+    if discard:
+        cond = sql.expression.not_(cond)
 
     statement = sql.expression.select(statement.columns,
                                       from_obj=statement,
@@ -220,13 +230,17 @@ aggregation_functions = {
 
 
 @operation("sql")
-def aggregate(ctx, obj, key, measures, include_count=True,
+def aggregate(ctx, obj, key, measures=None, include_count=True,
               count_field="record_count"):
 
     """Aggregate `measures` by `key`"""
 
     keys = prepare_key(key)
-    measures = prepare_aggregation_list(measures)
+
+    if measures:
+        measures = prepare_key(measures)
+    else:
+        measures = []
 
     out_fields = FieldList()
     out_fields += obj.fields.fields(keys)
