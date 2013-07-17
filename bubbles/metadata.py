@@ -19,7 +19,8 @@ __all__ = [
     "analytical_types",
     "distill_aggregate_measures",
     "prepare_key",
-    "prepare_aggregation_list"
+    "prepare_aggregation_list",
+    "prepare_order_list"
 ]
 
 """Abstracted field storage types"""
@@ -384,7 +385,7 @@ class FieldList(object):
                 return self._field_dict[ref]
             except KeyError:
                 raise NoSuchFieldError("Field list has no field with name "
-                                        "'%s'" % ref)
+                                        "'%s'" % (ref,) )
 
     def __len__(self):
         return len(self._fields)
@@ -626,19 +627,29 @@ def prepare_aggregation_list(measures):
     specified, then `sum` aggregation is assumed. Returns correct list of
     tuples."""
 
+    return prepare_tuple_list(measures, "sum")
+
+def prepare_order_list(fields):
+    """Coalesces list of fields for ordering. Accepts: a string, list of
+    strings, list of tuples `(field, order)`. Default order is ``asc``."""
+
+    return prepare_tuple_list(fields, "asc")
+
+def prepare_tuple_list(fields, default_value):
+    """Coalesces list of fields to list of tuples. Accepts: a string, list of
+    strings, list of tuples `(field, value)`. """
+
     result = []
 
-    if not isinstance(measures, (list, tuple, FieldList)):
-        measures = [measures]
+    if not isinstance(fields, (list, tuple, FieldList)):
+        fields = [fields]
 
-    for measure in measures:
-        if isinstance(measure, (str, Field)):
-            field = str(measure)
-            aggregate = "sum"
-        elif isinstance(measure, (list, tuple)):
-            field = measure[0]
-            aggregate = measure[1]
-        result.append( (field, aggregate) )
+    for obj in fields:
+        if isinstance(obj, (str, Field)):
+            field = str(obj)
+            value = "asc"
+        elif isinstance(obj, (list, tuple)):
+            field, value = obj
+        result.append( (field, value) )
 
     return result
-
