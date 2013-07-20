@@ -119,10 +119,23 @@ class Pipeline(object):
         """Runs the pipeline in Pipeline's context. If `context` is provided
         it overrides the default context."""
 
+        engine = self._get_engine(context)
+        return engine.run(self.graph)
+
+    def execution_plan(self, context=None):
+        """Returns an execution plan of the pipeline as provided by the
+        execution engine. For more information see
+        :meth:`ExecutionEngine.execution_plan`.  """
+
+        engine = self._get_engine(context)
+        return engine.execution_plan(self.graph)
+
+    def _get_engine(self, context=None):
+        """Return a fresh engine instance that uses either target's context or
+        explicitly specified other `context`."""
         context = context or self.context
         engine = self.engine_class(context=context, stores=self.stores)
-        engine.run(self.graph)
-
+        return engine
 
 class _PipelineOperation(object):
     def __init__(self, pipeline, opname):

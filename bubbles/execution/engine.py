@@ -69,7 +69,7 @@ class ExecutionEngine(object):
         self.context = context
         self.logger = context.logger
 
-    def prepare_execution_plan(self, graph):
+    def execution_plan(self, graph):
         """Returns a list of topologically sorted `ExecutionSteps`, ready to
         be used for execution.
 
@@ -132,7 +132,7 @@ class ExecutionEngine(object):
 
         # TODO: write documentation about consumable objects
 
-        plan = self.prepare_execution_plan(graph)
+        plan = self.execution_plan(graph)
 
         # Set of already consumed nodes
         consumed = set()
