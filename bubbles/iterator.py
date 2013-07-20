@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
 """Iterator composing operations."""
-from .metadata import *
-from .common import get_logger
-from .errors import *
-from .core import operation
-from .objects import *
-from .dev import experimental
 import itertools
 import functools
 import operator
-from collections import OrderedDict, namedtuple
 import sys
 import datetime
+from collections import OrderedDict, namedtuple
+from .metadata import *
+from .common import get_logger
+from .errors import *
+from .operation import operation
+from .objects import *
+from .dev import experimental
 
 # FIXME: add cheaper version for already sorted data
 # FIXME: BasicAuditProbe was removed

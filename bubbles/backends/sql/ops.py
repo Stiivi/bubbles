@@ -1,5 +1,5 @@
 import functools
-from ...core import operation, RetryOperation
+from ...operation import operation, RetryOperation
 from ...metadata import Field, FieldList, FieldFilter
 from ...metadata import prepare_aggregation_list
 from ...objects import IterableDataSource

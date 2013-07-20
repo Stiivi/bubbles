@@ -1,6 +1,6 @@
 # -*- Encoding: utf8 -*-
 
-"""bubbles development utilities - functions used for development and
+"""Development utilities - functions used for development and
 documentation of bubbles functionalities and objcects."""
 
 def experimental(fn):

@@ -33,7 +33,7 @@ p = Pipeline(stores=stores)
 p.source_object(source)
 
 # Uncomment this to get SQL operations instead of python iterator
-# p.create("default", "data")
+p.create("default", "data")
 
 # Find last purchase date
 last_purchase = p.fork()

@@ -1,7 +1,5 @@
 import unittest
-from bubbles.errors import *
-from bubbles.core import *
-from bubbles import DataObject
+from bubbles import *
 import bubbles.iterator
 
 # FIXME: clean this up
@@ -18,6 +16,8 @@ def binary(ctx, left, right):
 
 class DummyDataObject(DataObject):
     def __init__(self, reps=None, data=None):
+        """Creates a dummy data object with bogus representations `reps` and
+        arbitrary data `data`"""
         self.reps = reps or []
         self.data = data
 

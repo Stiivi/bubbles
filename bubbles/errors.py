@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+"""Bubbles Exceptions"""
+
 import io
 
 class BubblesError(Exception):
