@@ -2,7 +2,7 @@ from ..operation import operation
 from ..dev import experimental
 
 #############################################################################
-# Helper ops
+# Convenience
 
 @operation("*")
 @experimental
@@ -16,8 +16,11 @@ def drop_fields(ctx, obj, drop):
 
 @operation("*")
 @experimental
-def drop_fields(ctx, obj, keep):
+def keep_fields(ctx, obj, keep):
     return ctx.o.field_filter(obj, keep=keep)
+
+#############################################################################
+# Debug
 
 @operation("*")
 def debug_fields(ctx, obj, label=None):
