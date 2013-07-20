@@ -18,7 +18,8 @@ __all__ = (
 # FIXME: make this more intelligent and lazy
 _default_op_modules = (
             "bubbles.backends.sql.ops",
-            "bubbles.iterator",
+            "bubbles.ops.rows",
+            "bubbles.ops.generic"
         )
 
 

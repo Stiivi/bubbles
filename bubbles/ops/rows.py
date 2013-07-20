@@ -6,12 +6,12 @@ import operator
 import sys
 import datetime
 from collections import OrderedDict, namedtuple
-from .metadata import *
-from .common import get_logger
-from .errors import *
-from .operation import operation
-from .objects import *
-from .dev import experimental
+from ..metadata import *
+from ..common import get_logger
+from ..errors import *
+from ..operation import operation
+from ..objects import *
+from ..dev import experimental
 
 # FIXME: add cheaper version for already sorted data
 # FIXME: BasicAuditProbe was removed
@@ -870,35 +870,4 @@ def as_dict(ctx, obj, key=None, value=None):
         raise NotImplementedError("Specific composite value is not implemented")
     return d
 
-
-#############################################################################
-# Any
-
-# TODO: not actually iterator ops. They should be moved into a separate file
-# later
-
-@operation("*")
-@experimental
-def rename_fields(ctx, obj, rename):
-    return ctx.o.field_filter(obj, rename=rename)
-
-@operation("*")
-@experimental
-def drop_fields(ctx, obj, drop):
-    return ctx.o.field_filter(obj, drop=drop)
-
-@operation("*")
-@experimental
-def drop_fields(ctx, obj, keep):
-    return ctx.o.field_filter(obj, keep=keep)
-
-@operation("*")
-def debug_fields(ctx, obj, label=None):
-    if label:
-        label = " (%s)" % label
-    else:
-        label = ""
-
-    ctx.logger.info("fields%s: %s" % (label, obj.fields))
-    return obj
 
