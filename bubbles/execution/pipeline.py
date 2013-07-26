@@ -98,7 +98,6 @@ class Pipeline(object):
         fork has no node set and might be used as source."""
         fork = Pipeline(self.stores, self.context, self.graph)
 
-        # TODO: make the node non-consumable
         if not empty:
             fork.node = self.node
 

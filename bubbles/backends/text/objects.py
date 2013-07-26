@@ -198,7 +198,6 @@ class CSVSource(DataObject):
         self.encoding = encoding
         self.empty_as_null = empty_as_null
 
-        self.resource = resource
         self.dialect = dialect
         self.delimiter = delimiter
 
@@ -229,8 +228,8 @@ class CSVSource(DataObject):
         `analytical_type` = ``unknown``.
         """
 
-        self.handle, self.close_file = open_resource(self.resource,
-                                                     encoding=self.encoding)
+        self.resource = open_resource(resource, encoding=self.encoding)
+        self.handle = self.resource.handle
 
         options = dict(options) if options else {}
         if self.dialect:
@@ -361,9 +360,8 @@ class CSVSource(DataObject):
             self.converters = None
 
     def release(self):
-        if self.handle and self.close_file:
-            self.handle.close()
-            self.handle = None
+        if self.resource:
+            self.resource.close()
 
     def representations(self):
         return ["csv", "rows", "records"]
@@ -446,7 +444,6 @@ class CSVTarget(DataObject):
             * truncate: remove data from file before writing, default: True
 
         """
-        self.resource = resource
         self.write_headers = write_headers
         self.truncate = truncate
         self.encoding = encoding
@@ -459,8 +456,9 @@ class CSVTarget(DataObject):
 
         mode = "w" if self.truncate else "a"
 
-        self.handle, self.close_file = open_resource(self.resource, mode,
-                                                        encoding=self.encoding)
+        self.resource = open_resource(resource, mode,
+                                        encoding=self.encoding)
+        self.handle = self.resource.handle
 
         self.writer = csv.writer(self.handle, dialect=self.dialect, **self.kwds)
 
@@ -471,9 +469,9 @@ class CSVTarget(DataObject):
 
         self.field_names = self.fields.names()
 
-    def __del__(self):
-        if self.handle and self.close_file:
-            self.handle.close()
+    def finalize(self):
+        if self.resource:
+            self.resource.close()
 
     def append(self, row):
         self.writer.writerow(row)

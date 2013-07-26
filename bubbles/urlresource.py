@@ -9,7 +9,18 @@ __all__ = (
             "open_resource",
         )
 
-def open_resource(resource, mode=None, encoding=None):
+
+class Resource(object):
+    def __init__(self, handle, should_close):
+        self.handle = handle
+        self.should_close = should_close
+
+    def close(self):
+        if self.should_close:
+            self.handle.close()
+
+
+def open_resource(resource, mode=None, encoding=None, binary=False):
     """Get file-like handle for a resource. Conversion:
 
     * if resource is a string and it is not URL or it is file:// URL, then opens a file
@@ -30,6 +41,8 @@ def open_resource(resource, mode=None, encoding=None):
         is_winpath = bool(re.match(r'^[a-zA-Z]:[\\/][^\\/]', resource))
 
         if is_winpath or parts.scheme == '' or parts.scheme == 'file':
+            if binary:
+                mode = "rb" if not mode else "%sb" % mode
             if mode:
                 handle = open(resource, mode=mode,encoding=encoding)
             else:
@@ -43,5 +56,5 @@ def open_resource(resource, mode=None, encoding=None):
         should_close = False
         handle = resource
 
-    return handle, should_close
+    return Resource(handle, should_close)
 
