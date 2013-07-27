@@ -1,6 +1,6 @@
 import unittest
 from bubbles import *
-import bubbles.iterator
+# import bubbles.iterator
 
 # FIXME: clean this up
 import inspect

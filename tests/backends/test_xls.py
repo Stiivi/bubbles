@@ -36,5 +36,7 @@ class XLSBackendTestCase(unittest.TestCase):
         obj = store.get_object("numbers", skip_rows=2)
         self.assertEqual(10, len(obj))
 
+        store = open_store("xls", data_path("data.xls"))
+
 if __name__ == "__main__":
     unittest.main()
