@@ -17,6 +17,10 @@ def prepare_mongo_key(key):
 @operation("mongo")
 def field_filter(ctx, obj, keep=None, drop=None, rename=None, filter=None):
 
+    if rename:
+        raise NotImplementedError("Renaming of MongoDB fields is not "
+                                    "implemented")
+
     if filter:
         if keep or drop or rename:
             raise OperationError("Either filter or keep, drop, rename should "
@@ -27,6 +31,8 @@ def field_filter(ctx, obj, keep=None, drop=None, rename=None, filter=None):
         field_filter = FieldFilter(keep=keep, drop=drop, rename=rename)
 
     new_fields = field_filter.filter(obj.fields)
+
+    # No need to actually do anything just pretend that we have new fields.
 
     return obj.clone(fields=new_fields)
 
