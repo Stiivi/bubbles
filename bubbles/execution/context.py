@@ -5,6 +5,7 @@ from ..errors import *
 from ..dev import is_experimental
 from ..operation import Operation, OperationList, extract_signatures
 from ..common import get_logger
+from ..threadlocal import LocalProxy
 
 __all__ = (
             "OperationContext",
@@ -326,16 +327,15 @@ class _OperationGetter(object):
         return self.context.operation(name)
 
 
-class _DefaultContext(OperationContext):
-    def operation_not_found(self, name):
-        """Load default modules"""
-        for modname in _default_op_modules:
-            print("===> LOADING MODULE %s" % modname)
-            mod = _load_module(modname)
-            self.add_operations_from(mod)
+def create_default_context():
+    """Creates a ExecutionContext with default operations."""
+    context = ExecutionContext()
 
-        self.operation_not_found = super().operation_not_found
+    for modname in _default_op_modules:
+        mod = _load_module(modname)
+        context.add_operations_from(mod)
 
+    return context
 
 def _load_module(modulepath):
     mod = __import__(modulepath)
@@ -349,6 +349,8 @@ def _load_module(modulepath):
     return mod
 
 
-default_context = _DefaultContext()
+default_context = LocalProxy("default_context",
+                             factory=create_default_context)
+
 # FIXME: k is for backward prototype compatibility reasons and means 'kernel'
 k = default_context
