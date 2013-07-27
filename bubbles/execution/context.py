@@ -19,8 +19,9 @@ __all__ = (
 # FIXME: make this more intelligent and lazy
 _default_op_modules = (
             "bubbles.backends.sql.ops",
+            "bubbles.backends.mongo.ops",
             "bubbles.ops.rows",
-            "bubbles.ops.generic"
+            "bubbles.ops.generic",
         )
 
 
@@ -85,7 +86,6 @@ class OperationContext(object):
 
         for name in dir(obj):
             op = getattr(obj, name)
-            print("---- ADDING? %s %s" % (name, type(op) ) )
             if isinstance(op, Operation):
                 self.add_operation(op)
 
@@ -329,7 +329,7 @@ class _OperationGetter(object):
 
 def create_default_context():
     """Creates a ExecutionContext with default operations."""
-    context = ExecutionContext()
+    context = OperationContext()
 
     for modname in _default_op_modules:
         mod = _load_module(modname)
