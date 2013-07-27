@@ -32,7 +32,8 @@ storage_types = (
         "float",    # floating point types
         "boolean",
         "date",
-        "array"     # ordered collection type
+        "array",    # ordered collection type
+        "document", # JSON-like object
     )
 
 
@@ -57,7 +58,8 @@ default_analytical_types = {
                 "integer": "discrete",
                 "float": "measure",
                 "date": "typeless",
-                "array": "typeless"
+                "array": "typeless",
+                "document": "typeless"
             }
 
 _valid_retype_attributes = ("storage_type",
