@@ -63,6 +63,9 @@ class OperationContext(object):
         self.observer = LoggingContextObserver(self.logger)
         self.retry_count = retry_count
 
+        self.retry_allow = []
+        self.retry_deny = []
+
     def operation_list(self, name):
         """Get list of operation variants for an operation with `name`."""
 
@@ -171,6 +174,22 @@ class OperationContext(object):
                 print("    - %s:%s" % \
                             (op.signature.signature, op.function) )
 
+    def can_retry(self, opname):
+        """Returns `True` if an operation can be retried. By default, all
+        operations can be retried. `Context.retry_allow` contains list of
+        allowed operations, `Context.retry_deny` contains list of denied
+        operations. When the allow list is set, then only operations from the
+        list are allowed. When the deny list is set, the operations in the
+        deny list are not allowed."""
+
+        if self.retry_deny and opname in self.retry_deny:
+            return False
+
+        if self.retry_allow and opname not in self.retry_allow:
+            return False
+
+        return True
+
     def call(self, op_name, *args, **kwargs):
         """Call operation with `name`. Arguments are passed to the
         operation"""
@@ -205,6 +224,9 @@ class OperationContext(object):
                                     op_name)
             result = op.function(self, *args, **kwargs)
         except RetryOperation as e:
+            if not self.can_retry(op_name):
+                raise RetryError("Retry of operation '%s' is not allowed")
+
             signature = e.signature
             reason = e.reason
             success = False

@@ -268,6 +268,41 @@ class KernelTestCase(unittest.TestCase):
         with self.assertRaises(RetryError):
             result = c.o.endless(local, local)
 
+    def test_allow_deny_retry(self):
+        @operation("sql")
+        def swim(ctx, obj):
+            raise RetryOperation(["rows"])
+
+        @operation("rows", name="swim")
+        def swim_rows(ctx, obj):
+            obj.data = "good"
+            return obj
+
+        obj = DummyDataObject(["sql", "rows"], "")
+
+        c = OperationContext()
+        c.add_operation(swim)
+        c.add_operation(swim_rows)
+
+        result = c.op.swim(obj)
+        self.assertEqual("good", result.data)
+
+        c.retry_deny = ["swim"]
+        c.retry_allow = []
+        with self.assertRaises(RetryError):
+            c.op.swim(obj)
+
+        c.retry_deny = []
+        c.retry_allow = ["swim"]
+        result = c.op.swim(obj)
+        self.assertEqual("good", result.data)
+
+        c.retry_deny = ["swim"]
+        c.retry_allow = ["swim"]
+        with self.assertRaises(RetryError):
+            c.op.swim(obj)
+
+
     def test_retry_nested(self):
         """Test whether failed nested operation fails correctly (Because of
         Issue #4)."""
