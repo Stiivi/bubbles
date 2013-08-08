@@ -130,30 +130,41 @@ def to_field(obj):
     return field
 
 class Field(object):
-    """Metadata - information about a field in a dataset or in a datastream.
+    """`Field` is a metadata that describes part of data object's structure.
+    It might refer to a table column, document key or any other descriptor of
+    common data. Fields are identified by name.
 
-    :Attributes:
-        * `name` - field name
-        * `label` - optional human readable field label
-        * `storage_type` - Normalized data storage type. The data storage type
-          is abstracted
-        * `concrete_storage_type` (optional, recommended) - Data store/database
-          dependent storage type - this is the real name of data type as used
-          in a database where the field comes from or where the field is going
-          to be created (this might be null if unknown)
-        * `analytical_type` - data type used in data mining algorithms
-        * `size` – optional field size - interpretation of the value is
-          related to the `storage_type` and/or `concrete_storaget_type`. For
-          example it might be length of text fields or list of array
-          dimensions for array type.
-        * `missing_values` (optional) - Array of values that represent missing
-          values in the dataset for given field
-        * `info` – user specific field information, might contain formatting
-          information for example
-        * `origin` – field or field list from which this field was derived
-        * `owner` – object responsible for creation of this field
-        * `` – d
+    Attributes:
+
+    * `name` - field name.
+    * `label` - optional human readable field label that might be used in
+      end-user applications.
+    * `storage_type` - Normalized data storage type to one of the Bubble's
+      basic storage types.
+    * `concrete_storage_type` (optional, recommended) - Data store/database
+      dependent storage type - this is the real data type descriptor as used
+      in a backend system, such as database, where the field comes from or
+      where the field is going to be created. If it is `None`, then backend
+      tries to use a default type for the field's `storage_type`. Value might
+      be any object understandable by the backend that will be "touching" the
+      object's data.
+    * `analytical_type` - data type from user's perspective. Describes the
+      intention how the field is used. Might also be used for restricting some
+      functionality based on the type.
+    * `size` – optional field size - interpretation of the value is
+      related to the `storage_type` and/or `concrete_storaget_type`. For
+      example it might be length of text fields or list of array
+      dimensions for array type.
+    * `missing_values` (optional) - Array of values that represent missing
+      values in the dataset for given field
+    * `info` – user specific field information, might contain formatting
+      information for example
+
     """
+    # TODO: make this public once ownership mechanism is redesigned
+    # * `origin` – field or field list from which this field was derived
+    # * `owner` – object responsible for creation of this field
+
 
     attribute_defaults = {
                 "storage_type":"unknown",
@@ -229,7 +240,9 @@ class FieldList(object):
     """List of fields"""
     def __init__(self, *fields):
         """
-        Create a list of :class:`Field` objects from a list of strings, dictionaries or tuples
+        Main description of data object structure. Created from a list of
+        :class:`Field` objects from a list of strings, dictionaries or tuples
+
 
         How fields are consutrcuted:
 
@@ -237,6 +250,8 @@ class FieldList(object):
         * tuple: (`field_name`, `storaget_type`, `analytical_type`), the `field_name` is
           obligatory, rest is optional
         * dict: contains key-value pairs for initializing a :class:`Field` object
+
+        Example: `FieldList('name', 'address')`.
 
         For strings and in if not explicitly specified in a tuple or a dict case, then following rules
         apply:
