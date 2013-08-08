@@ -45,7 +45,7 @@ class OperationContext(object):
         .. code-block:: python
 
             c = Context()
-            duplicate_records = c.duplicates(table)
+            duplicate_records = c.op.duplicates(table)
 
         Context uses multiple dispatch based on operation arguments. The
         `k.duplicates()` operation might be different, based on available
@@ -55,7 +55,9 @@ class OperationContext(object):
         super().__init__()
         self.operations = defaultdict(OperationList)
         self.operation_retry_count = retry_count
-        self.o = _OperationGetter(self)
+        self.op = _OperationGetter(self)
+        # TODO: depreciate
+        self.o = self.op
 
         self.logger = get_logger()
         self.observer = LoggingContextObserver(self.logger)
@@ -326,6 +328,8 @@ class _OperationGetter(object):
     def __getattr__(self, name):
         return self.context.operation(name)
 
+    def __getitem__(self, name):
+        return self.context.operation(name)
 
 def create_default_context():
     """Creates a ExecutionContext with default operations."""

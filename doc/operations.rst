@@ -35,7 +35,7 @@ Example:
    from bubbles import get_object
 
    source = get_object("csv", "data.csv")
-   duplicates = c.o.duplicates(source)
+   duplicates = c.op.duplicates(source)
 
 
 To get operation catalogue, use: `context.debug_print_catalogue()`
