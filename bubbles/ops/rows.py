@@ -482,8 +482,10 @@ def append_constant_fields(ctx, obj, fields, value):
 
     if not isinstance(value, (list, tuple)):
         constants = (value, )
+    else:
+        constants = value
 
-    output_fields = obj_fields + fields
+    output_fields = obj.fields + fields
 
     return IterableDataSource(iterator(constants), output_fields)
 
