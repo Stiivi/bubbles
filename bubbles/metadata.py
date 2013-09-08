@@ -167,7 +167,7 @@ class Field(object):
 
 
     attribute_defaults = {
-                "storage_type":"unknown",
+                "storage_type":"string",
                 "analytical_type": None
             }
 
