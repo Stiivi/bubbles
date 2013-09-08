@@ -236,10 +236,9 @@ class OperationList(UserList):
         if not self.prototype:
             self.set_prototype(op)
         if len(op.signature) != self.prototype.operand_count:
-
             raise ArgumentError("Number of object arguments (%s) for %s do not"
-                    "match prototype (%s)" % (len(op.signature, op,
-                                              self.prototype.operand_count)))
+                    "match prototype (%s)" % (len(op.signature), op,
+                                              self.prototype.operand_count))
 
         super().append(op)
 
