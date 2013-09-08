@@ -5,6 +5,7 @@ from ..common import get_logger
 from ..metadata import Field, FieldList
 from ..stores import DataStore
 from ..urlresource import open_resource
+import datetime
 
 try:
     import xlrd
