@@ -58,7 +58,8 @@ class XLSStore(DataStore):
 
 
 class XLSObject(DataObject):
-    def __init__(self, resource=None, sheet=0, encoding=None,
+    _ns_object_name = "xls"
+    def __init__(self, resource=None, fields=None, sheet=0, encoding=None,
                  skip_rows=0, has_header=True, workbook=None):
         """Creates a XLS spreadsheet data source stream.
 
@@ -86,20 +87,29 @@ class XLSObject(DataObject):
         if skip_rows >= self.sheet.nrows:
             raise ArgumentError("First row number is larger than number of rows")
 
-        # Read fields
         if has_header:
-            names = self.sheet.row_values(skip_rows)
             self.first_row = skip_rows + 1
         else:
             self.first_row  = skip_rows
 
-        self.fields = FieldList()
+        if fields:
+            self.fields = fields
+        else:
+            # Read fields
+            if has_header:
+                names = self.sheet.row_values(skip_rows)
 
-        row = self.sheet.row(self.first_row)
-        for name, cell in zip(names, row):
-            storage_type = _cell_types.get(cell.ctype, "unknown")
-            field = Field(name, storage_type=storage_type)
-            self.fields.append(field)
+            self.fields = FieldList()
+
+            row = self.sheet.row(self.first_row)
+            for name, cell in zip(names, row):
+                storage_type = _cell_types.get(cell.ctype, "unknown")
+                field = Field(name, storage_type=storage_type)
+                self.fields.append(field)
+
+
+    def representations(self):
+        return ["rows", "records"]
 
     def __len__(self):
         return self.sheet.nrows - self.first_row
@@ -113,6 +123,9 @@ class XLSObject(DataObject):
         fields = self.fields.names()
         for row in self.rows():
             yield dict(zip(fields, row))
+
+    def is_consumable(self):
+        return False
 
 class XLSRowIterator(object):
     """
