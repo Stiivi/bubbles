@@ -607,6 +607,31 @@ def text_substitute(ctx, iterator, field, substitutions):
 
 @operation("rows")
 @unary_iterator
+@experimental
+def empty_to_missing(ctx, iterator, fields=None, strict=False):
+    """Converts empty strings into `None` values."""
+    if fields:
+        if strict:
+            fields = iterator.fields.fields(fields)
+        else:
+            array = []
+            for field in fields:
+                if field in iterator.fields:
+                    array.append(field)
+            fields = array
+    else:
+        fields = iterator.fields.fields(storage_type="string")
+
+    indexes = iterator.fields.indexes(fields)
+
+    for row in iterator:
+        row = list(row)
+        for index in indexes:
+            row[index] = row[index] if row[index] else None
+        yield row
+
+@operation("rows")
+@unary_iterator
 def string_strip(ctx, iterator, strip_fields=None, chars=None):
     """Strip characters from `strip_fields` in the iterator. If no
     `strip_fields` is provided, then it strips all `string` or `text` storage
