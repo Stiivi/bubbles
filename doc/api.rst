@@ -15,6 +15,7 @@ Metadata
 
 .. autoclass:: bubbles.FieldFilter
 
+
 Objects
 -------
 
@@ -34,8 +35,8 @@ Stores
 .. autoclass:: bubbles.DataStore
 
 
-Context
--------
+Context and Execution
+---------------------
 
 .. autoclass:: bubbles.OperationContext
 
@@ -45,6 +46,12 @@ Context
 
 .. autoclass:: bubbles.Operation
    
+.. autoclass:: bubbles.Graph
+
+.. autoclass:: bubbles.LoggingContextObserver
+
+.. autoclass:: bubbles.CollectingContextObserver
+
 Pipeline
 --------
 
@@ -61,6 +68,11 @@ Various utilities
 
 .. autofunction:: bubbles.open_resource
 
+.. autoclass:: bubbles.prepare_key
+
+.. autoclass:: bubbles.prepare_aggregation_list
+
+.. autoclass:: bubbles.prepare_order_list
 
 Internals
 =========
