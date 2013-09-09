@@ -206,7 +206,7 @@ def _postgres_copy_from(self, connection, table, stream, is_csv=True,
 class SQLDataStore(DataStore):
     """Holds context of SQL store operations."""
 
-    _ns_object_name = "sql"
+    __identifier__ = "sql"
 
     def __init__(self, url=None, connectable=None, schema=None,
             concrete_type_map=None, sqlalchemy_options=None):
@@ -692,6 +692,7 @@ class SQLTable(SQLDataObject):
         * after insert of all rows of `rows` representation
         """
 
+        # TODO: depreciate this in favor of the insert() operation
         reprs = obj.representations()
 
         if self.can_compose(obj):
@@ -709,8 +710,6 @@ class SQLTable(SQLDataObject):
         elif "rows" in reprs:
             self.store.logger.debug("append_from: appending rows into %s" %
                                                                 self.name)
-            # Assumption: all data objects with "rows" representation
-            # implement Python iteraotr protocol
             for row in obj.rows():
                 self.append(row)
 

@@ -35,7 +35,7 @@ def default_store(database, host, port):
     return store
 
 class MongoDBStore(DataStore):
-    _ns_object_name = "mongo"
+    __identifier__ = "mongo"
 
     def __init__(self, database, host='localhost', port=27017, client=None):
         """Creates a MongoDB data object store."""
@@ -77,7 +77,7 @@ class MongoDBStore(DataStore):
 class MongoDBCollection(DataObject):
     """docstring for ClassName
     """
-    _ns_object_name = "mongo"
+    __identifier__ = "mongo"
 
     def __init__(self, collection, fields, truncate=False,
                  expand=False,

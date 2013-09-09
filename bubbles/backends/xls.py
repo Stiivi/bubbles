@@ -59,7 +59,7 @@ class XLSStore(DataStore):
 
 
 class XLSObject(DataObject):
-    _ns_object_name = "xls"
+    __identifier__ = "xls"
     def __init__(self, resource=None, fields=None, sheet=0, encoding=None,
                  skip_rows=0, has_header=True, workbook=None):
         """Creates a XLS spreadsheet data source stream.

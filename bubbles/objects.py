@@ -199,6 +199,22 @@ class DataObject(object):
         Default implementation returns the receiver."""
         return self
 
+    def finalize(self):
+        """Subclasses should implement this method if they need to release
+        resources (memory, database connection, open files, ...) acquired
+        during the object's lifetime. Default implementation does nothing."""
+        pass
+
+class ObjectPool(set):
+
+    def release(self):
+        """Release all retained objects. The release order should not be
+        anticipated."""
+
+        while self:
+            obj = objects.pop()
+            obj.release()
+
 
 def shared_representations(objects):
     """Returns representations that are shared by all `objects`"""
@@ -213,7 +229,7 @@ class IterableDataSource(DataObject):
     """Wrapped Python iterator that serves as data source. The iterator should
     yield "rows" – list of values according to `fields` """
 
-    _ns_object_name = "iterable"
+    __identifier__ = "iterable"
 
     _bubbles_info = {
         "attributes": [
@@ -272,7 +288,7 @@ class IterableRecordsDataSource(IterableDataSource):
     """Wrapped Python iterator that serves as data source. The iterator should
     yield "records" – dictionaries with keys as specified in `fields` """
 
-    _ns_object_name = "iterable_records"
+    __identifier__ = "iterable_records"
 
     _bubbles_info = {
         "attributes": [
@@ -300,7 +316,7 @@ class RowListDataObject(DataObject):
     If list is not provided, one will be created.
     """
 
-    _ns_object_name = "list"
+    __identifier__ = "list"
 
     _bubbles_info = {
         "attributes": [
