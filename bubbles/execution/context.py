@@ -314,9 +314,9 @@ class LoggingContextObserver(object):
         logger = self.logger or ctx.logger
 
         if not retries:
-            logger.deubug("called %s(%s)" % (op, op.signature))
+            logger.debug("called %s(%s)" % (op, op.signature))
         else:
-            logger.deubug("called %s(%s) wth %s retries" % \
+            logger.debug("called %s(%s) wth %s retries" % \
                                 (op, op.signature, retries))
 
     def will_retry_operation(self, ctx, op, reason):
