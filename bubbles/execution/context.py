@@ -308,20 +308,20 @@ class LoggingContextObserver(object):
 
     def will_call_operation(self, ctx, op):
         logger = self.logger or ctx.logger
-        logger.debug("calling %s(%s)" % (op, op.signature))
+        logger.info("calling %s(%s)" % (op, op.signature))
 
     def did_call_operation(self, ctx, op, retries):
         logger = self.logger or ctx.logger
 
         if not retries:
-            logger.info("called %s(%s)" % (op, op.signature))
+            logger.deubug("called %s(%s)" % (op, op.signature))
         else:
-            logger.info("called %s(%s) wth %s retries" % \
+            logger.deubug("called %s(%s) wth %s retries" % \
                                 (op, op.signature, retries))
 
     def will_retry_operation(self, ctx, op, reason):
         logger = self.logger or ctx.logger
-        logger.debug("retry %s(%s), reason: %s" %
+        logger.info("retry %s(%s), reason: %s" %
                                         (op, op.signature, reason))
 
 class CollectingContextObserver(object):
