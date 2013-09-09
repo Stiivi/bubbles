@@ -809,6 +809,45 @@ def assert_unique(ctx, obj, key=None):
 
     return obj
 
+@operation("sql")
+def assert_contains(ctx, obj, field, value):
+    statement = obj.sql_statement().alias("__u")
+    column = statement.c[str(field)]
+
+    condition = column == value
+    selection = [1]
+
+    statement = sql.expression.select(selection,
+                                       from_obj=statement,
+                                       group_by=group,
+                                       having=condition,
+                                       limit=1)
+
+    result = list(obj.store.execute(statement))
+    if len(result) != 1:
+        raise ProbeAssertionError
+
+    return obj
+
+@operation("sql")
+def assert_missing(ctx, obj, field, value):
+    # statement = obj.sql_statement().alias("__u")
+    statement = obj.sql_statement()
+    column = statement.c[str(field)]
+
+    condition = column == value
+    selection = [1]
+
+    statement = sql.expression.select(selection,
+                                       from_obj=statement,
+                                       whereclause=condition,
+                                       limit=1)
+
+    result = list(obj.store.execute(statement))
+    if len(result) != 0:
+        raise ProbeAssertionError
+
+    return obj
 
 #############################################################################
 # Conversions
