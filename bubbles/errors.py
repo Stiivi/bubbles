@@ -25,7 +25,8 @@ class ArgumentError(BubblesError):
 
 class ProbeAssertionError(BubblesError):
     """Raised when proble assertion fails"""
-    pass
+    def __init__(self, reason=None):
+        self.reason = reason
 
 class ConsumedError(BubblesError):
     """Raised wheny trying to read from already consumed object"""
