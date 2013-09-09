@@ -282,6 +282,13 @@ class SQLDataStore(DataStore):
         obj = SQLTable(table=name, schema=self.schema, store=self)
         return obj
 
+    def exists(self, name):
+        try:
+            table = self.table(name)
+            return table.exists()
+        except NoSuchObjectError:
+            return False
+
     def statement(self, statement, fields=None):
         """Returns a statement object belonging to this store"""
         if not fields:
@@ -392,7 +399,8 @@ class SQLDataStore(DataStore):
 
         try:
             return sqlalchemy.Table(table, self.metadata,
-                                autoload=autoload, schema=schema)
+                                    autoload=autoload, schema=schema,
+                                    autoload_with=self.connectable)
         except sqlalchemy.exc.NoSuchTableError:
             if schema:
                 slabel = " in schema '%s'" % schema
@@ -605,7 +613,7 @@ class SQLTable(SQLDataObject):
 
         """
 
-        super(SQLTable, self).__init__(store=store, schema=schema)
+        super().__init__(store=store, schema=schema)
 
         self.fields = None
 
