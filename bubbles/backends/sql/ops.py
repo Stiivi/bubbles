@@ -823,4 +823,51 @@ def as_records(ctx, obj):
     return obj
 
 
+#############################################################################
+# Loading
+
+@operation("sql", "sql")
+def insert(ctx, source, target):
+    if not target.can_compose(src):
+        raise RetryOperation(["rows"])
+
+    # Flush all data that were added through append() to preserve
+    # insertion order (just in case)
+    target.flush()
+
+    # Preare INSERT INTO ... SELECT ... statement
+    statement = InsertFromSelect(target.table, source.selectable())
+
+    target.store.execute(statement)
+
+    return target
+
+@operation("rows", "sql")
+def insert(ctx, source, target):
+
+    if len(source.fields) > len(target.fields):
+         raise OperationError("Number of source fields %s is greater than "
+                              "number of target fields %s" % (len(source.fields),
+                                                             len(target.fields)))
+
+    missing = set(source.fields.names()) - set(target.fields.names())
+    if missing:
+        raise OperationError("Source contains fields that are not in the "
+                "target: %s" % (missing, ))
+
+    indexes = []
+    for name in target.fields.names():
+        if name in source.fields:
+            indexes.append(source.fields.index(name))
+        else:
+            indexes.append(None)
+
+    target.flush()
+    for row in source.rows():
+        row = [row[i] if i is not None else None for i in indexes]
+        target.append(row)
+
+    target.flush()
+
+    return target
 
