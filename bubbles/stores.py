@@ -123,7 +123,7 @@ class SimpleMemoryStore(DataStore):
     def exists(name):
         return name in catalogue
 
-# TODO: consider this experiemntal, naive
+
 class FileSystemStore(DataStore):
     __identifier__ = "file"
 

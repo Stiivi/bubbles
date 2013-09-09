@@ -208,6 +208,14 @@ class SQLDataStore(DataStore):
 
     __identifier__ = "sql"
 
+    _bubbles_info = {
+        "options": [
+            {"name":"url", "description": "Database URL"},
+            {"name":"schema", "description":"Database schema"}
+        ],
+        "requirements": ["sqlalchemy"]
+    }
+
     def __init__(self, url=None, connectable=None, schema=None,
             concrete_type_map=None, sqlalchemy_options=None):
         """Opens a SQL data store.
