@@ -11,7 +11,7 @@ __all__ = [
         ]
 
 class Pipeline(object):
-    def __init__(self, stores=None, context=None, graph=None):
+    def __init__(self, stores=None, context=None, graph=None, name=None):
         """Creates a new pipeline with `context` and sets current object to
         `obj`. If no context is provided, default one is used.
 
@@ -29,6 +29,8 @@ class Pipeline(object):
             p.create("default", "cities")
             p.run()
 
+        `name` is an optional user's pipeline identifier that is used for
+        debugging purposes.
 
         .. note::
 
@@ -39,11 +41,15 @@ class Pipeline(object):
         self.context = context or default_context
         self.stores = stores or {}
         self.graph = graph or Graph()
+        self.name = name
 
         # Set default execution engine
         self.engine_class = ExecutionEngine
 
         self.node = None
+
+        self._test_if_needed = None
+        self._test_if_satisfied = None
 
     def source(self, store, objname, **params):
         """Appends a source node to an empty pipeline. The source node will
@@ -161,10 +167,59 @@ class Pipeline(object):
 
     def run(self, context=None):
         """Runs the pipeline in Pipeline's context. If `context` is provided
-        it overrides the default context."""
+        it overrides the default context.
+
+        There are two prerequisities for the pipeline to be run:
+
+        * *test if needed* – pipeline is run only when needed, only when the
+          test is satisfied. If the test is not satisfied
+          (`ProbeAssertionError` is raised), the pipeline is gracefully
+          skipped and considered successful without running.
+
+        * *test if satisfied* - pipeline is run only when certain requirements
+          are satisfied. If the requirements are not met, then an exception is
+          raised and pipeline is not run.
+
+        The difference between *"if needed"* and *"if satisfied"* is that the
+        first one test whether the pipeline did already run or we already have
+        the data. The second one *"if satisfied"* tests whether the pipeline
+        will be able to run successfuly.
+
+        """
 
         engine = self._get_engine(context)
-        return engine.run(self.graph)
+
+        run = True
+        if self._test_if_needed:
+            try:
+                engine.run(self._test_if_needed.graph)
+            except ProbeAssertionError:
+                name = self.name or "(unnamed)"
+                self.context.logger.info("Skipping pipeline '%s', "
+                                         "no need to run according to the test." %
+                                         name)
+                run = False
+
+        if run and self._test_if_satisfied:
+            try:
+                engine.run(self._test_if_satisfied.graph)
+            except ProbeAssertionError as e:
+                name = self.name or "(unnamed)"
+                reason = e.reason or "(unknown reason)"
+                self.context.logger.error("Requirements for pipeline '%s' "
+                            "are not satisfied. Reason: %s" % (name, reason))
+                raise
+
+        if run:
+            result = engine.run(self.graph)
+        else:
+            result = None
+
+
+        # TODO: run self._test_successful
+        # TODO: run self.rollback if not sucessful
+
+        return result
 
     def execution_plan(self, context=None):
         """Returns an execution plan of the pipeline as provided by the
@@ -180,6 +235,22 @@ class Pipeline(object):
         context = context or self.context
         engine = self.engine_class(context=context, stores=self.stores)
         return engine
+
+    def test_if_needed(self):
+        """Create a branch that will be run before the pipeline is run. If the
+        test passes, then pipeline will not be run. Use this, for example, to
+        determine whether the data is already processed."""
+        self._test_if_needed = Pipeline(self.stores, self.context)
+        return self._test_if_needed
+
+    def test_if_satisfied(self):
+        """Create a branch that will be run before the pipeline is run. If the
+        test fails, then pipeline will not be run and an error will be raised.
+        Use this to test dependencies of the pipeline and avoid running an
+        expensive process."""
+
+        self._test_if_satisfied = Pipeline(self.stores, self.context)
+        return self._test_if_satisfied
 
 class _PipelineOperation(object):
     def __init__(self, pipeline, opname):
