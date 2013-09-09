@@ -66,7 +66,7 @@ class DataStore(object):
     def __getitem__(self, name):
         return self.get_object(name)
 
-    def create(name, fields, replace=False, from_obj=None, temporary=False,
+    def create(self, name, fields, replace=False, from_obj=None, temporary=False,
                **options):
         """Args:
             * replace
@@ -75,6 +75,11 @@ class DataStore(object):
               disconnected
         """
         pass
+
+    def exists(self, name):
+        """Return `True` if object with `name` exists, otherwise returns
+        `False`. Subclasses should implement this method."""
+        raise NotImplementedError
 
     def create_temporary(fields, from_obj=None, **options):
         """Creates a temporary data object"""
