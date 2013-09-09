@@ -42,9 +42,6 @@ def create_logger():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-    if __debug__:
-        logger.setLevel(logging.DEBUG)
-
     return logger
 
 class MissingPackageError(Exception):
