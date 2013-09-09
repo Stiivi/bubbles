@@ -10,10 +10,10 @@ __all__ = (
 
     # Not quite public
     "Node",
-    "SourceNode",
+    "StoreObjectNode",
     "ObjectNode",
     "CreateObjectNode",
-    "FactorySourceNode"
+    "ObjectFactoryNode"
 )
 
 class NodeBase(object):
@@ -48,7 +48,7 @@ class Node(NodeBase):
         return prototype.operands
 
 
-class FactorySourceNode(NodeBase):
+class ObjectFactoryNode(NodeBase):
     def __init__(self, factory, *args, **kwargs):
 
         self.factory = factory
@@ -64,7 +64,7 @@ class FactorySourceNode(NodeBase):
     def __str__(self):
         return "factory source %s" % self.factory
 
-class SourceNode(NodeBase):
+class StoreObjectNode(NodeBase):
     def __init__(self, store, objname, **parameters):
         self.store = store
         self.objname = objname
@@ -79,7 +79,7 @@ class SourceNode(NodeBase):
         try:
             store = engine.stores[self.store]
         except KeyError:
-            raise ArgumentError("Unknown store %s" % store)
+            raise ArgumentError("Unknown store '%s'" % self.store)
 
         return store.get_object(self.objname, **self.parameters)
 

@@ -54,7 +54,7 @@ class Pipeline(object):
             raise BubblesError("Can not set pipeline source: there is already "
                                 "a node. Use new pipeline.")
 
-        self.node = SourceNode(store, objname, **params)
+        self.node = StoreObjectNode(store, objname, **params)
         self.graph.add(self.node)
 
         return self
@@ -68,7 +68,7 @@ class Pipeline(object):
                                 "a node. Use new pipeline.")
 
         if isinstance(obj, str):
-            node = FactorySourceNode(obj, **params)
+            node = ObjectFactoryNode(obj, **params)
         else:
             if params:
                 raise ArgumentError("params should not be specified if "
@@ -79,6 +79,51 @@ class Pipeline(object):
         self.node = node
 
         return self
+
+    def insert_into(self, store, objname, **params):
+        """Appends a node that inserts into `objname` object in `store`.  The
+        actual object will be fetched during execution."""
+
+        if self.node is None:
+            raise BubblesError("Cannot insert from a empty or disconnected "
+                                "pipeline.")
+
+        target = StoreObjectNode(store, objname, **params)
+        self._append_insert_into(target)
+
+        return self
+
+    def insert_into_object(self, obj, **params):
+        """If `obj` is a data object, then it is set as target for insert. If
+        `obj` is a string, then it is considered as a factory and object is
+        obtained using :fun:`data_object` with `params`"""
+
+        if self.node is None:
+            raise BubblesError("Cannot insert from a empty or disconnected "
+                                "pipeline.")
+
+        if isinstance(obj, str):
+            node = ObjectFactoryNode(obj, **params)
+        else:
+            if params:
+                raise ArgumentError("params should not be specified if "
+                                    "object is provided.")
+            node = ObjectNode(obj)
+
+        self._append_insert_into(node)
+
+        return self
+
+    def _append_insert_into(self, target, **params):
+        """Appends an `insert into` node."""
+
+        insert = Node("insert")
+        self.graph.add(insert)
+        self.graph.add(target)
+        self.graph.connect(target, insert, "target")
+        self.graph.connect(self.node, insert, "source")
+
+        self.node = insert
 
     def create(self, store, name, *args, **kwargs):
         """Create new object `name` in store `name`. """
