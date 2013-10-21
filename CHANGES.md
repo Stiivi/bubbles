@@ -7,24 +7,28 @@ Changes in Bubbles
 Overview
 --------
 
+* New data processing graph and new graph based `Pipeline` with customizable
+  execution policy and with pre-execution tests
 * New MongoDB backend with a store, data object and few demo ops
 * New XLS backend with a store and data object
-* New feature: data processing graph and new graph based `Pipeline`
 * New operations (see below)
 
-Operation Changes
------------------
+Operations
+----------
 
-New:
+New operations:
 
 * `filter_by_range`, `filter_not_empty`: rows, sql
 * `split_date`: rows, sql
-* `string_to_date`: rows – still experimental, format will change to SQL date
-  format
 * `field_filter`: mongo (without `rename`)
 * `distinct`: mongo
+* `insert`: (rows, sql) and (sql, sql)
+* `assert_contains`, `assert_missing`: sql
+* `empty_to_missing`: rows – experimental
+* `string_to_date`: rows – still experimental, format will change to SQL date
+  format
 
-Changes and fixes:
+Changed and fixed operations:
 
 * `aggregate` accepts empty measure list – yields only count
 
@@ -38,17 +42,31 @@ New Features
 * new `FieldError` exception
 * Take into account object's data consumability on object use (naive
   implementation for the time being)
-* CSVStore (`csv`) is now able to create CSV targets
+* CSVStore (`csv`) is now able to create CSV targets with `csv_target` factory
+  name
+* New `Resource` class representing file-like resources with optional call to
+  `close()`
+* Added `FileSystemStore` for read-only CSV and XLS files with default
+  settings.
+* Added `Store.exists()`, implemented in SQL backend.
+* `ProbeAssertionError` has a `reason` attribute
+
+Pipeline and execution:
+
 * `Graph` and `Node` structure for building operation processing graphs
 * operation list has an operation prototype that includes operation operand
   and parameter names
 * Added `ExecutionEngine`, currently semi-private, but will serve as basis for
   future custom graph execution policies
-* Added thread_local - thread local variable storage
-* New `Resource` class representing file-like resources with optional call to
-  `close()`
 * Added `Pipeline.execution_plan`
+* Added thread_local - thread local variable storage
 * Added `retry_deny` and `retry_allow` to the operation context
+* Added insert operation accessible through `Pipeline.insert_into` and
+  `Pipeline.insert_into_object`
+* Added `test_if_needed()` and `test_if_satisfied()` methods which are fork()
+  -like but executed before running the pipeline (see documentation for more
+  information)
+
 
 Changes
 -------
@@ -65,6 +83,11 @@ Changes
 * operation context's `o` accessor was renamed to `op` and now also supports
   getitem: `context.op["duplicates"]` is equal to `context.op.duplicates`.
 * data objects should respond to `retained()` and `is_consumable()`
+* default field storage type is now `string` instead of `unknown` for
+  convenience.
+* Removed default setting for debug logging, uses warning level
+* Renamed namespace object name customization class variable `_ns_object_name`
+  to `__identifier__`
 
 Fixes
 -----

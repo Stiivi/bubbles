@@ -3,10 +3,9 @@ Bubbles
 
 Also known as Brewery2.
 
-Library and set of tools for processing, auditing and inspecting data using
-virtual data objects.
-
-Focus is on understandability and transparency of the process.
+Bubbles is a Python ETL Framework and set of tools. It can be used for
+processing, auditing and inspecting data. Focus is on understandability and
+transparency of the process.
 
 Project page: http://bubbles.databrewery.org
 
@@ -17,13 +16,13 @@ About
 
 Bubbles is a Python framework for:
 
+* ETL (extraction, transformation and loading)
+* preparation of data for further analysis
+* data probing – analysing properties of data, mostly categorical in nature
+* data quality monitoring
 * virtual data objects – abstraction of table-like structured datasets.
   Datasets are treated the same, no matter whether the source is a text file
   or a database table.
-* preparation of data for further analysis
-* data probing – analysing properties of data, mostly categorical in nature
-* ETL (extraction, transformation and loading)
-* data quality monitoring
 
 Installation
 ------------
@@ -64,7 +63,6 @@ Google group or write to the author.
 
 * Report issues here: https://github.com/Stiivi/bubbles/issues
 * Google group: http://groups.google.com/group/databrewery
-
 
 Author
 ------
