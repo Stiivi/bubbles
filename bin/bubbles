@@ -1,0 +1,234 @@
+#! /usr/bin/env python3
+#
+
+"""
+
+Bubbles command line tool
+
+For more information run: bubbles --help
+
+Paths:
+
+    * /etc/bubbles:~/.bubbles:.bubbles
+
+Config:
+
+    * config.ini
+
+Author: Stefan Urbanek <stefan.urbanek@gmail.com>
+"""
+
+import argparse
+import json
+import sys
+import configparser
+import os.path
+import argparse
+import re
+from bubbles import *
+
+class ToolError(Exception):
+    """Just exception"""
+    pass
+
+CONFIG_PATHS = ['/etc/bubbles', \
+				'~/.bubbles', \
+				'./bubbles']
+
+def load_config(args):
+    paths = CONFIG_PATHS + (args.config if args.config else [])
+    config = configparser.SafeConfigParser()
+
+    for path in paths:
+        config_file = os.path.join(path, "config.ini")
+        if os.path.exists(config_file):
+            config.read(config_file)
+
+    if config.has_section("extensions"):
+        extensions = config.options("extensions")
+        for extension in extensions:
+            mod_name = config.get("extensions", extension)
+            import_extension(extension, mod_name)
+
+def import_extension(extension_name, module_name=None):
+    """Imports a bubbles tool extension from module `module_name`.
+
+    Note: extension name is not used yet module_name is specified. Might be used in the future to allow
+    different modules replace extensions with same name.
+    """
+
+    # FIXME: this is from brewery tool
+    module = __import__(module_name or extension_name)
+
+
+def create_context(args):
+    if args.empty:
+        context = OperationContext()
+    else:
+        context = default_context
+        # Dummy request for an operation - forces automatic loading 
+        context.operation_list("distinct")
+
+    modules = args.module or []
+    for name in modules:
+        module = __import__(name)
+        context.add_operations_from(mod)
+
+    return context
+
+def opcatalogue(context, args):
+    """Print all operations in the context."""
+
+    keys = list(context.operations.keys())
+    keys.sort()
+
+    reps = set(args.representation)
+
+    selection = []
+
+    # Select only operations with signatures matching reps
+    for opname in keys:
+        ops = context.operations[opname]
+        for op in ops:
+            if not reps or reps and (reps & set(op.signature.signature)):
+                selection.append(opname)
+
+    for opname in selection:
+        print("%s" % opname)
+
+        if args.signatures:
+            ops = context.operations[opname]
+            for op in ops:
+                if not reps or reps and (reps & set(op.signature.signature)):
+                    sig = ", ".join(op.signature.signature)
+                    print("    (%s)" % sig)
+
+def run_pipe(args):
+
+    # Collect operations
+    pattern = re.compile(r"^(\w+)=(.*)")
+    templates = []
+    attribs = {}
+    current = None
+
+    # Cllect nodes and attributes
+    # 
+    # node name pattern: node_name
+    # attribute pattern: attribute=value
+    #
+
+    for arg in args.node:
+        match = pattern.match(arg)
+        if match:
+            (attribute, value) = match.groups()
+            attribs[attribute] = value
+        else:
+            if current:
+                templates.append( (current, attribs) )
+                attribs = {}
+            current = arg
+    if current:
+        templates.append( (current, attribs) )
+
+    pipe = Pipeline()
+
+    nodes = []
+    for template, attribs in templates:
+        try:
+            node = brewery.nodes.create_node(template)
+        except KeyError:
+            sys.stderr.write("ERROR: unknown node %s\n" % template)
+            exit(1)
+
+        node.configure(attribs)
+        stream.add(node)
+        nodes.append(node)
+        
+        if last_node:
+            stream.connect(last_node, node)
+        last_node = node
+    
+    # If first node is not source node, then we add CSV node with standard
+    # input
+    
+    if not isinstance(nodes[0], brewery.nodes.SourceNode):
+        node = brewery.nodes.create_node("csv_source")
+        node.resource = sys.stdin
+        stream.add(node)
+        stream.connect(node, nodes[0])
+
+    if not isinstance(nodes[-1], brewery.nodes.TargetNode):
+        node = brewery.nodes.create_node("csv_target")
+        node.resource = sys.stdout
+        stream.add(node)
+        stream.connect(nodes[-1], node)
+    
+    stream.run()
+
+################################################################################
+# Main code
+
+main_parser = argparse.ArgumentParser(description='Bubbles command lite tool')
+main_parser.add_argument('--config',
+                         action='append',
+                         help='bubbles configuration file')
+main_parser.add_argument('-m', '--module',
+                         action='append',
+                         help='list of python modules to be loaded and inspected '
+                              'for potential operations')
+main_parser.add_argument('--empty',
+                         action='store_true',
+                         help='start with empty context (requires -m)')
+
+subparsers = main_parser.add_subparsers(title='commands', help='additional help')
+
+################################################################################
+# Command: operation catalogue
+
+op_parser = subparsers.add_parser('op')
+op_subparsers = op_parser.add_subparsers(title='operation commands')
+
+subparser = op_subparsers.add_parser("list", help = "list available operations")
+subparser.add_argument('-r', '--representation', action='append',
+                    help="show operations having specified rep in signature")
+subparser.add_argument('--signatures', action='store_true',
+                    help="show also operation signatures")
+
+subparser.set_defaults(func=opcatalogue)
+
+################################################################################
+# Command: pipe
+
+subparser = subparsers.add_parser('pipe',
+help="create a simple Brewery node pipe",
+                     formatter_class=argparse.RawDescriptionHelpFormatter,
+                     description=textwrap.dedent('''\
+                     There should be at least one operation specified.
+
+                     The arguments are either operations or operation
+                     arguments. Attributes follow node name and have format:
+                     attribute=value
+
+                     If there is no source node, then CSV source on standard
+                     input is assumed. If there is no target node, then CSV
+                     target on standard output is assumed.
+                     ''')
+                 )
+subparser.add_argument('op', nargs="+", help='list of operations')
+subparser.set_defaults(func=run_pipe)
+# 
+
+args = main_parser.parse_args(sys.argv[1:])
+
+context = create_context(args)
+
+load_config(args)
+
+if "func" in args:
+    try:
+        args.func(context, args)
+    except ToolError as e:
+        sys.stderr.write("Error: %s" % str(e))
+        exit(1)
+else:
+    main_parser.print_help()
