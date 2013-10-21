@@ -664,7 +664,7 @@ def prepare_tuple_list(fields, default_value):
     for obj in fields:
         if isinstance(obj, (str, Field)):
             field = str(obj)
-            value = "asc"
+            value = default_value
         elif isinstance(obj, (list, tuple)):
             field, value = obj
         result.append( (field, value) )

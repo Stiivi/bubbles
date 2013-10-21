@@ -20,8 +20,6 @@ data = [
     [9, 3, 2013, 120]
 ]
 
-source = data_object("iterable", data, fields)
-
 # Stores for SQL alternative, if enabled (see below)
 stores = { "default": open_store("sql","sqlite:///") }
 
@@ -30,7 +28,7 @@ stores = { "default": open_store("sql","sqlite:///") }
 #
 
 p = Pipeline(stores=stores)
-p.source_object(source)
+p.source_object("iterable", iterable=data, fields=fields)
 
 # Uncomment this to get SQL operations instead of python iterator
 p.create("default", "data")

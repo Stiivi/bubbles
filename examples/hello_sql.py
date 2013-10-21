@@ -12,12 +12,13 @@ stores = {
 
 
 p = bubbles.Pipeline(stores=stores)
-p.source(bubbles.data_object("csv_source", URL, infer_fields=True))
+p.source_object("csv_source", resource=URL, infer_fields=True)
 
 # We create a table
 # Uncomment this line and see the difference in debug messages
-# p.create("data", "target")
+# p.create("target", "data")
 
 p.distinct("Category")
 p.pretty_print()
+p.run()
 
