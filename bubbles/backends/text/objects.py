@@ -12,6 +12,7 @@ from ...errors import *
 from ...urlresource import open_resource
 from ...stores import DataStore
 from ...datautil import guess_type
+import json
 
 __all__ = (
         "CSVStore",
@@ -59,13 +60,22 @@ class CSVStore(DataStore):
     def get_object(self, name):
         """Returns a CSVSource object with filename constructed from store's
         path and extension"""
+        fields_file = "%s_fields.json" % name
+        fields_path = os.path.join(self.path, fields_file)
+
         name = name + self.extension
         path = os.path.join(self.path, name)
 
+        args = dict(self.kwargs)
+        if os.path.exists(fields_path):
+            with open(fields_path) as f:
+                metadata = json.load(f)
+            args["fields"] = FieldList(*metadata)
+
         if self.role in ["s", "src", "source"]:
-            return CSVSource(path, **self.kwargs)
+            return CSVSource(path, **args)
         elif self.role in ["t", "target"]:
-            return CSVTarget(path, **self.kwargs)
+            return CSVTarget(path, **args)
         else:
             raise ArgumentError("Unknown CSV object role '%s'" % role)
 
