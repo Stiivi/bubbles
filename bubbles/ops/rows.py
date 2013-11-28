@@ -206,7 +206,9 @@ def distinct(ctx, obj, key=None, is_sorted=False):
     else:
         row_filter = FieldFilter().row_filter(fields)
 
-    fields = fields.fields(key)
+    # Retain original order of fields
+    fields = FieldList(*row_filter(obj.fields))
+
     return IterableDataSource(iterator(row_filter), fields)
 
 
