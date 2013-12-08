@@ -134,6 +134,17 @@ def filter_not_empty(ctx, iterator, field):
 
     return filter(predicate, iterator)
 
+@operation("rows")
+@unary_iterator
+def filter_empty(ctx, iterator, field):
+    """Select rows where value of `field` is None or empty string"""
+
+    fields = iterator.fields
+    index = fields.index(field)
+
+    predicate = lambda row: row[index] is None or row[index] == ""
+
+    return filter(predicate, iterator)
 
 @operation("rows")
 @unary_iterator
