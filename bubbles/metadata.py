@@ -30,10 +30,19 @@ storage_types = (
         "text",     # bigger text storage
         "integer",  # integer numeric types
         "float",    # floating point types
-        "boolean",
-        "date",
+
+        "boolean",  # two-state value
+
+        "datetime", # Full date and time with time zone
+        "time",     # time without a date
+        "date",     # 
+
         "array",    # ordered collection type
-        "document", # JSON-like object
+        "object",   # JSON-like object
+        "binary",   # any representation of binary data (byte string or base64
+                    # encoded string
+
+        "geopoint", # a tuple: (longitude, latitude)
     )
 
 
@@ -62,14 +71,7 @@ default_analytical_types = {
                 "document": "typeless"
             }
 
-_valid_retype_attributes = ("storage_type",
-                     "analytical_type",
-                     "concrete_storage_type",
-                     "missing_values")
 
-_field_attributes = ["name", "storage_type", "analytical_type",
-                     "concrete_storage_type", "size", "missing_values",
-                     "label", "info", "origin", "owner"]
 
 def to_field(obj):
     """Converts `obj` to a field object. `obj` can be ``str``, ``tuple``
@@ -163,7 +165,7 @@ class Field(object):
     """
     # TODO: make this public once ownership mechanism is redesigned
     # * `origin` – field or field list from which this field was derived
-    # * `owner` – object responsible for creation of this field
+    # * `owner` – object that created this field
 
 
     attribute_defaults = {
@@ -171,24 +173,19 @@ class Field(object):
                 "analytical_type": None
             }
 
-    def __init__(self, *args, **kwargs):
-        super(Field,self).__init__()
+    def __init__(self, name=None, storage_type=None, analytical_type=None,
+                 concrete_storage_type=None, size=None, missing_value=None,
+                 label=None, info=None, origin=None):
 
-        remaining = set(_field_attributes)
-
-        for name, value in zip(_field_attributes, args):
-            setattr(self, name, value)
-            remaining.remove(name)
-
-        for name, value in kwargs.items():
-            if name in remaining:
-                setattr(self, name, value)
-                remaining.remove(name)
-            else:
-                raise ValueError("Argument %s specified more than once" % name)
-
-        for name in remaining:
-            setattr(self, name, self.attribute_defaults.get(name, None))
+        self.name = name
+        self.storage_type = storage_type
+        self.analytical_type = analytical_type
+        self.concrete_storage_type = concrete_storage_type
+        self.size = size
+        self.missing_value = missing_value
+        self.label = label
+        self.info = info
+        self.origin = origin
 
     def clone(self, **attributes):
         """Clone a field and set attributes"""
@@ -198,13 +195,37 @@ class Field(object):
 
     def to_dict(self):
         """Return dictionary representation of the field."""
-        d = {}
-        for name in _field_attributes:
-            d[name] = getattr(self, name)
+        d = IgnoringDictionary()
+
+        # Note: the ignoring dictionary skips empty values. It also preserves
+        # the orider (for nicer JSON output)
+        d["name"] = self.name
+        d["storage_type"] = self.storage_type
+        d["analytical_type"] = self.analytical_type
+        d["concrete_storage_type"] = self.concrete_storage_type
+        d["size"] = self.size
+        d["missing_value"] = self.missing_value
+        d["label"] = self.label
+        d["info"] = self.info
+        d["origin"] = self.origin
+
         return d
 
     def __copy__(self):
-        field = Field(**self.to_dict())
+        if self.info:
+            info = dict(self.info)
+        else:
+            info = None
+
+        field = Field(self.name,
+                      self.storage_type,
+                      self.analytical_type,
+                      self.concrete_storage_type,
+                      self.size,
+                      self.missing_value,
+                      self.label,
+                      info,
+                      self.origin)
         return field
 
     def __str__(self):
@@ -217,24 +238,23 @@ class Field(object):
     def __eq__(self, other):
         if self is other:
             return True
+
         if not isinstance(other, Field):
             return False
 
-        # TODO: ignore origin
-        for name in _field_attributes:
-            if getattr(self, name) != getattr(other, name):
-                return False
-        return True
+        return self.name == other.name \
+                and self.storage_type == other.storage_type \
+                and self.analytical_type == other.analytical_type \
+                and self.concrete_storage_type == other.concrete_storage_type \
+                and self.size == other.size \
+                and self.missing_value == other.missing_value \
+                and self.label == other.label \
+                and self.info == other.info \
+                and self.origin == other.origin
 
     def __ne__(self,other):
         return not self.__eq__(other)
 
-    def __hash__(self):
-        # Hash should be the same as the one of field's origin
-        if isinstance(self.origin, Field):
-            return hash(self.origin)
-        else:
-            return self.name.__hash__()
 
 class FieldList(object):
     """List of fields"""
@@ -461,7 +481,9 @@ class FieldList(object):
         return FieldList(*self._fields)
 
     def clone(self, fields=None, origin=None, owner=None):
-        """Creates a copy of the list and copy of the fields.
+        """Creates a copy of the list and copy of the fields. Automatically
+        sets the origin of fields to be the original field or `origin` if
+        specified.
         """
         fields = self.fields(fields)
 
@@ -473,9 +495,9 @@ class FieldList(object):
 
         return cloned_fields
 
+
 class FieldFilter(object):
     """Filters fields in a stream"""
-    # TODO: preserve order of "keep"
     def __init__(self, keep=None, drop=None, rename=None):
         """Creates a field map. `rename` is a dictionary where keys are input
         field names and values are output field names. `drop` is list of
