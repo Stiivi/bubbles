@@ -8,6 +8,8 @@ import re
 import sys
 import logging
 
+from collections import OrderedDict
+
 __all__ = [
     "logger_name",
     "get_logger",
@@ -17,6 +19,8 @@ __all__ = [
 
     "decamelize",
     "to_identifier",
+
+    "IgnoringDictionary"
 ]
 
 logger_name = "bubbles"
@@ -43,6 +47,27 @@ def create_logger():
     logger.addHandler(handler)
 
     return logger
+
+
+class IgnoringDictionary(OrderedDict):
+    """Simple dictionary extension that will ignore any keys of which values
+    are empty (None/False)"""
+    def __setitem__(self, key, value):
+        if value is not None:
+            super(IgnoringDictionary, self).__setitem__(key, value)
+
+    def set(self, key, value):
+        """Sets `value` for `key` even if value is null."""
+        super(IgnoringDictionary, self).__setitem__(key, value)
+
+    def __repr__(self):
+        items = []
+        for key, value in self.items():
+            item = '%s: %s' % (repr(key), repr(value))
+            items.append(item)
+
+        return "{%s}" % ", ".join(items)
+
 
 class MissingPackageError(Exception):
     """Exception raised when encountered a missing package."""
