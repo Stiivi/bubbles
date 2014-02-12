@@ -23,19 +23,21 @@ try:
         (sqlalchemy.types.String, "string", "set"),
         (sqlalchemy.types.Integer, "integer", "discrete"),
         (sqlalchemy.types.Numeric, "float", "range"),
-        (sqlalchemy.types.DateTime, "date", "typeless"),
+        (sqlalchemy.types.DateTime, "datetime", "typeless"),
         (sqlalchemy.types.Date, "date", "typeless"),
-        (sqlalchemy.types.Time, "unknown", "typeless"),
+        (sqlalchemy.types.Time, "time", "typeless"),
         (sqlalchemy.types.Interval, "unknown", "typeless"),
         (sqlalchemy.types.Boolean, "boolean", "flag"),
-        (sqlalchemy.types.Binary, "unknown", "typeless")
+        (sqlalchemy.types.Binary, "binary", "typeless")
     )
 
     concrete_sql_type_map = {
         "string": sqlalchemy.types.Unicode,
         "text": sqlalchemy.types.UnicodeText,
         "date": sqlalchemy.types.Date,
-        "time": sqlalchemy.types.DateTime,
+        "time": sqlalchemy.types.Time,
+        "datetime": sqlalchemy.types.DateTime,
+        "binary": sqlalchemy.types.Binary,
         "integer": sqlalchemy.types.Integer,
         "float": sqlalchemy.types.Numeric,
         "boolean": sqlalchemy.types.SmallInteger
