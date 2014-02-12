@@ -498,6 +498,7 @@ class FieldList(object):
 
 class FieldFilter(object):
     """Filters fields in a stream"""
+    # TODO: preserve order of "keep"
     def __init__(self, keep=None, drop=None, rename=None):
         """Creates a field map. `rename` is a dictionary where keys are input
         field names and values are output field names. `drop` is list of

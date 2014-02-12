@@ -32,9 +32,9 @@ Example:
 .. code-block:: python
 
    from bubbles import default_context as c
-   from bubbles import get_object
+   from bubbles import data_object
 
-   source = get_object("csv", "data.csv")
+   source = data_object("csv", "data.csv")
    duplicates = c.op.duplicates(source)
 
 

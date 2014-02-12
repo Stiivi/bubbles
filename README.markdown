@@ -1,8 +1,6 @@
 Bubbles
 =======
 
-Also known as Brewery2.
-
 Bubbles is a Python ETL Framework and set of tools. It can be used for
 processing, auditing and inspecting data. Focus is on understandability and
 transparency of the process.
