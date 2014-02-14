@@ -3,7 +3,7 @@
 
 from .errors import *
 from .objects import *
-from .extensions import get_namespace, collect_subclasses
+from .extensions import collect_subclasses
 from .common import get_logger
 from collections import defaultdict, namedtuple, UserList
 from .dev import is_experimental

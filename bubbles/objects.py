@@ -5,7 +5,7 @@
 # FIXME: add this
 # from .ops.iterator import as_records
 from .errors import *
-from .extensions import *
+from .extensions import Extensible, extensions
 from .metadata import *
 from .dev import required, experimental
 
@@ -34,23 +34,18 @@ def data_object(type_, *args, **kwargs):
     * `row_list`
     """
 
-    ns = get_namespace("object_types")
-    if not ns:
-        ns = initialize_namespace("object_types", root_class=DataObject,
-                                    suffix=None)
+    return extensions.object(type_, *args, **kwargs)
 
-    try:
-        factory = ns[type_]
-    except KeyError:
-        raise BubblesError("Unable to find factory for object of type %s" %
-                                type_)
-    return factory(*args, **kwargs)
 
 def iterator_object(iterator, fields):
     """Returns a data object wrapping an `iterator` with rows of `fields`."""
     return IterableDataSource(iterator, fields)
 
-class DataObject(object):
+
+class DataObject(Extensible):
+    __extension_type__ = "object"
+    __extension_suffix__ = ""
+
     def representations(self):
         """Returns list of representation names of this data object. Default
         implementation raises an exception, as subclasses are required to

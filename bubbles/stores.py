@@ -2,7 +2,7 @@
 
 from .errors import *
 from .metadata import *
-from .extensions import *
+from .extensions import Extensible, extensions
 from .objects import data_object
 import os.path
 
@@ -17,20 +17,13 @@ __all__ = [
 def open_store(type_, *args, **kwargs):
     """Opens datastore of `type`."""
 
-    ns = get_namespace("store_types")
-    if not ns:
-        ns = initialize_namespace("store_types", root_class=DataStore,
-                                suffix="_store")
-
-    try:
-        factory = ns[type_]
-    except KeyError:
-        raise BubblesError("Unable to find factory for store of type '%s'" %
-                                type_)
-    return factory(*args, **kwargs)
+    store = extensions.store(type_, *args, **kwargs)
+    return store
 
 
-class DataStore(object):
+class DataStore(Extensible):
+    __extension_type__ = "store"
+    __extension_suffix__ = "Store"
     def __init__(self, **options):
         pass
 
