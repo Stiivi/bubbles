@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """Bubbles Exceptions"""
 
-import io
-
 class BubblesError(Exception):
 	"""Basic error class"""
 	pass
+
+class InternalError(Exception):
+    pass
 
 class MetadataError(BubblesError):
 	"""Error raised on metadata incosistency"""
