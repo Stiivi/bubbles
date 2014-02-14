@@ -30,6 +30,7 @@ def to_bool(value):
         return bool(value)
 
 _default_type_converters = {
+    None: None,
     "unknown": None,
     "string": None,
     "text": None,
