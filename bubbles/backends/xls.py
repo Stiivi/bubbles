@@ -108,7 +108,6 @@ class XLSObject(DataObject):
                 field = Field(name, storage_type=storage_type)
                 self.fields.append(field)
 
-
     def representations(self):
         return ["rows", "records"]
 
@@ -118,7 +117,10 @@ class XLSObject(DataObject):
     def rows(self):
         if not self.fields:
             raise RuntimeError("Fields are not initialized")
-        return XLSRowIterator(self.workbook, self.sheet, self.first_row)
+        return XLSRowIterator(self.workbook,
+                              self.sheet,
+                              self.first_row,
+                              self.fields)
 
     def records(self):
         fields = self.fields.names()
@@ -132,11 +134,15 @@ class XLSRowIterator(object):
     """
     Iterator that reads XLS spreadsheet
     """
-    def __init__(self, workbook, sheet, first_row=0):
+    def __init__(self, workbook, sheet, first_row=0, fields=None):
         self.workbook = workbook
         self.sheet = sheet
         self.row_count = sheet.nrows
         self.current_row = first_row
+        if fields:
+            self.field_count = len(fields)
+        else:
+            self.field_count = None
 
     def __iter__(self):
         return self
@@ -146,6 +152,8 @@ class XLSRowIterator(object):
             raise StopIteration
 
         row = self.sheet.row(self.current_row)
+        if self.field_count is not None:
+            row = row[:self.field_count]
         row = tuple(self._cell_value(cell) for cell in row)
         self.current_row += 1
         return row
