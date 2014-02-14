@@ -378,5 +378,3 @@ def _load_module(modulepath):
 default_context = LocalProxy("default_context",
                              factory=create_default_context)
 
-# FIXME: k is for backward prototype compatibility reasons and means 'kernel'
-k = default_context
