@@ -5,7 +5,7 @@ import functools
 import re
 import inspect
 import warnings
-from .common import get_logger
+from .common import get_logger, IgnoringDictionary
 from .errors import *
 
 # from collections import OrderedDict
@@ -72,6 +72,18 @@ default_analytical_types = {
             }
 
 
+FIELD_ATTRIBUTES = (
+    "name",
+    "label",
+    "storage_type",
+    "analytical_type",
+    "concrete_storage_type",
+    "size",
+    "missing_value",
+    "info",
+    "origin"
+)
+
 
 def to_field(obj):
     """Converts `obj` to a field object. `obj` can be ``str``, ``tuple``
@@ -116,7 +128,7 @@ def to_field(obj):
                 pass
 
         elif isinstance(obj, dict):
-            for attr in _field_attributes:
+            for attr in FIELD_ATTRIBUTES:
                 if attr in obj:
                     d[attr] = obj[attr]
 
@@ -129,7 +141,9 @@ def to_field(obj):
                 deftype = default_analytical_types.get(storage_type)
 
         field = Field(**d)
+
     return field
+
 
 class Field(object):
     """`Field` is a metadata that describes part of data object's structure.
@@ -167,7 +181,6 @@ class Field(object):
     # * `origin` – field or field list from which this field was derived
     # * `owner` – object that created this field
 
-
     attribute_defaults = {
                 "storage_type":"string",
                 "analytical_type": None
@@ -199,24 +212,12 @@ class Field(object):
 
         # Note: the ignoring dictionary skips empty values. It also preserves
         # the orider (for nicer JSON output)
-        d["name"] = self.name
-        d["storage_type"] = self.storage_type
-        d["analytical_type"] = self.analytical_type
-        d["concrete_storage_type"] = self.concrete_storage_type
-        d["size"] = self.size
-        d["missing_value"] = self.missing_value
-        d["label"] = self.label
-        d["info"] = self.info
-        d["origin"] = self.origin
+        for attr in FIELD_ATTRIBUTES:
+            d[attr] = getattr(self, attr)
 
         return d
 
-    def __copy__(self):
-        if self.info:
-            info = dict(self.info)
-        else:
-            info = None
-
+    def __deepcopy__(self, memo):
         field = Field(self.name,
                       self.storage_type,
                       self.analytical_type,
@@ -224,7 +225,7 @@ class Field(object):
                       self.size,
                       self.missing_value,
                       self.label,
-                      info,
+                      copy.deepcopy(self.info, memo),
                       self.origin)
         return field
 
@@ -242,15 +243,10 @@ class Field(object):
         if not isinstance(other, Field):
             return False
 
-        return self.name == other.name \
-                and self.storage_type == other.storage_type \
-                and self.analytical_type == other.analytical_type \
-                and self.concrete_storage_type == other.concrete_storage_type \
-                and self.size == other.size \
-                and self.missing_value == other.missing_value \
-                and self.label == other.label \
-                and self.info == other.info \
-                and self.origin == other.origin
+        for attr in FIELD_ATTRIBUTES:
+            if getattr(self, attr) != getattr(other, attr):
+                return False
+        return True
 
     def __ne__(self,other):
         return not self.__eq__(other)
