@@ -19,10 +19,10 @@ try:
     _sql_to_bubbles_types = (
         (sqlalchemy.types.UnicodeText, "text", "typeless"),
         (sqlalchemy.types.Text, "text", "typeless"),
-        (sqlalchemy.types.Unicode, "string", "set"),
-        (sqlalchemy.types.String, "string", "set"),
+        (sqlalchemy.types.Unicode, "string", "nominal"),
+        (sqlalchemy.types.String, "string", "nominal"),
         (sqlalchemy.types.Integer, "integer", "discrete"),
-        (sqlalchemy.types.Numeric, "float", "range"),
+        (sqlalchemy.types.Numeric, "float", "measure"),
         (sqlalchemy.types.DateTime, "datetime", "typeless"),
         (sqlalchemy.types.Date, "date", "typeless"),
         (sqlalchemy.types.Time, "time", "typeless"),
@@ -39,7 +39,7 @@ try:
         "datetime": sqlalchemy.types.DateTime,
         "binary": sqlalchemy.types.Binary,
         "integer": sqlalchemy.types.Integer,
-        "float": sqlalchemy.types.Numeric,
+        "number": sqlalchemy.types.Numeric,
         "boolean": sqlalchemy.types.SmallInteger
     }
 

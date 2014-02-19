@@ -20,7 +20,8 @@ __all__ = [
     "distill_aggregate_measures",
     "prepare_key",
     "prepare_aggregation_list",
-    "prepare_order_list"
+    "prepare_order_list",
+    "DEFAULT_ANALYTICAL_TYPES"
 ]
 
 """Abstracted field storage types"""
@@ -29,7 +30,7 @@ storage_types = (
         "string",   # names, labels, up to hundreds of hundreds of chars
         "text",     # bigger text storage
         "integer",  # integer numeric types
-        "float",    # floating point types
+        "number",    # floating point types
 
         "boolean",  # two-state value
 
@@ -60,12 +61,12 @@ analytical_types = ("default",  # unspecified or based on storage type
 """Mapping between storage types and their respective default analytical
 types"""
 # NOTE: For the time being, this is private
-default_analytical_types = {
+DEFAULT_ANALYTICAL_TYPES = {
                 "unknown": "typeless",
                 "string": "typeless",
                 "text": "typeless",
                 "integer": "discrete",
-                "float": "measure",
+                "number": "measure",
                 "date": "typeless",
                 "array": "typeless",
                 "document": "typeless"
@@ -81,7 +82,8 @@ FIELD_ATTRIBUTES = (
     "size",
     "missing_value",
     "info",
-    "origin"
+    "origin",
+    "description"
 )
 
 
@@ -138,7 +140,7 @@ def to_field(obj):
         if "analytical_type" not in d:
             storage_type = d.get("storage_type")
             if storage_type:
-                deftype = default_analytical_types.get(storage_type)
+                deftype = DEFAULT_ANALYTICAL_TYPES.get(storage_type)
 
         field = Field(**d)
 
@@ -188,7 +190,7 @@ class Field(object):
 
     def __init__(self, name=None, storage_type=None, analytical_type=None,
                  concrete_storage_type=None, size=None, missing_value=None,
-                 label=None, info=None, origin=None):
+                 label=None, info=None, origin=None, description=None):
 
         self.name = name
         self.storage_type = storage_type
@@ -199,6 +201,7 @@ class Field(object):
         self.label = label
         self.info = info
         self.origin = origin
+        self.description = description
 
     def clone(self, **attributes):
         """Clone a field and set attributes"""
@@ -226,7 +229,8 @@ class Field(object):
                       self.missing_value,
                       self.label,
                       copy.deepcopy(self.info, memo),
-                      self.origin)
+                      self.origin,
+                      self.description)
         return field
 
     def __str__(self):
