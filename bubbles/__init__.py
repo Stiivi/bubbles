@@ -7,6 +7,7 @@ from .stores import *
 from .backends import *
 from .datautil import *
 from .execution import *
+from .resource import *
 
 __version__ = "0.2"
 
