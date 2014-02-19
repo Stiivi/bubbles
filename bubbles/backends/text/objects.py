@@ -9,7 +9,7 @@ import itertools
 from ...objects import *
 from ...metadata import *
 from ...errors import *
-from ...urlresource import open_resource
+from ...resource import Resource
 from ...stores import DataStore
 from ...datautil import guess_type
 import json
@@ -239,8 +239,8 @@ class CSVSource(DataObject):
         `analytical_type` = ``unknown``.
         """
 
-        self.resource = open_resource(resource, encoding=self.encoding)
-        self.handle = self.resource.handle
+        self.resource = Resource(resource, encoding=self.encoding)
+        self.handle = self.resource.open()
 
         options = dict(options) if options else {}
         if self.dialect:
@@ -416,6 +416,7 @@ class CSVSource(DataObject):
 
         return RowListDataObject(list(self.rows()), self.fields)
 
+
 class CSVTarget(DataObject):
     """Comma separated values text file as a data target."""
 
@@ -467,9 +468,7 @@ class CSVTarget(DataObject):
 
         mode = "w" if self.truncate else "a"
 
-        self.resource = open_resource(resource, mode,
-                                        encoding=self.encoding)
-        self.handle = self.resource.handle
+        self.handle = open(resource, mode=mode, encodin=encoding)
 
         self.writer = csv.writer(self.handle, dialect=self.dialect, **self.kwds)
 
@@ -481,8 +480,8 @@ class CSVTarget(DataObject):
         self.field_names = self.fields.names()
 
     def finalize(self):
-        if self.resource:
-            self.resource.close()
+        if self.handle:
+            self.handle.close()
 
     def append(self, row):
         self.writer.writerow(row)

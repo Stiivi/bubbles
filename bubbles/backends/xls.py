@@ -4,7 +4,7 @@ from ..errors import *
 from ..common import get_logger
 from ..metadata import Field, FieldList
 from ..stores import DataStore
-from ..urlresource import open_resource
+from ..urlresource import Resource
 import datetime
 
 try:
@@ -24,7 +24,7 @@ except ImportError:
     xlrd = MissingPackage("xlrd", "Data objects from MS Excel spreadsheets")
 
 def _load_workbook(resource, encoding):
-        resource = open_resource(resource, binary=True)
+        resource = Resource(resource, binary=True)
         data = resource.handle.read()
         resource.close()
 
