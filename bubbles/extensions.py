@@ -22,6 +22,8 @@ _default_modules = {
         "sql":"bubbles.backends.sql.objects",
         "mongo":"bubbles.backends.sql.mongo",
         "csv":"bubbles.backends.sql.text",
+        "datapackage":"bubbles.datapackage",
+        "datapackages":"bubbles.datapackage",
     },
     "object": {
         "csv_source":"bubbles.backends.text.objects",
