@@ -37,10 +37,7 @@ def open_resource(resource, mode=None, encoding=None, binary=False):
         should_close = True
         parts = urllib.parse.urlparse(resource)
 
-        # FIXME: this is MS Windows workaround
-        is_winpath = bool(re.match(r'^[a-zA-Z]:[\\/][^\\/]', resource))
-
-        if is_winpath or parts.scheme == '' or parts.scheme == 'file':
+        if parts.scheme == '' or parts.scheme == 'file':
             if binary:
                 mode = "rb" if not mode else "%sb" % mode
             if mode:
