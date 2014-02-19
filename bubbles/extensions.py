@@ -119,7 +119,7 @@ class ExtensionsFactory(object):
         try:
             return self.extensions[name]
         except KeyError:
-            raise ConfigurationError("Unknown extension '%s' of type %s"
+            raise InternalError("Unknown extension '%s' of type %s"
                                      % (name, self.name))
 
     def discover(self):
