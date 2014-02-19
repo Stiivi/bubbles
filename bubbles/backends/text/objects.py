@@ -13,6 +13,10 @@ from ...resource import Resource
 from ...stores import DataStore
 from ...datautil import guess_type
 import json
+from datetime import datetime
+from time import strptime
+from base64 import b64decode
+import json
 
 __all__ = (
         "CSVStore",
@@ -30,15 +34,16 @@ def to_bool(value):
         return bool(value)
 
 _default_type_converters = {
-    None: None,
-    "unknown": None,
-    "string": None,
-    "text": None,
     "integer": int,
-    "float": float,
+    "number": float,
     "boolean": to_bool,
-    "date": None,
-    "time": None
+    "date": lambda val: datetime.strptime(val, '%Y-%m-%d').date(),
+    "time": lambda val: strptime(val, '%H:%M'),
+    "datetime": lambda val: datetime.strptime(val, '%Y-%m-%dT%H:%M:%S%Z'),
+    "binary": b64decode,
+    "object": json.loads,
+    "geojson": json.loads,
+    "array": ValueError
 }
 
 CSVData = namedtuple("CSVData", ["handle", "dialect", "encoding", "fields"])
@@ -185,7 +190,7 @@ class CSVSource(DataObject):
         RH FI IT
          0  0  0 - ERROR
          0  0  1 - detect fields
-         1  0  0 - read header, use strings
+         1  0  0 - read header, use strings (default)
          1  0  1 - read header, detect types
          0  1  0 - use fields, header as data
          0  1  1 - ERROR
@@ -362,10 +367,7 @@ class CSVSource(DataObject):
         return fields
 
     def set_fields(self, fields):
-        try:
-            self.converters = [self.type_converters[f.storage_type] for f in fields]
-        except KeyError as e:
-            raise BubblesError("Unknown conversion: %s" % e)
+        self.converters = [self.type_converters.get(f.storage_type) for f in fields]
 
         if not any(self.converters):
             self.converters = None
