@@ -4,16 +4,25 @@
 class BubblesError(Exception):
 	"""Basic error class"""
 	pass
+class UserError(BubblesError):
+    """Superclass for all errors caused by the bubbles users. Error
+    messages from this error might be safely passed to the front-end. Do not
+    include any information that you would not like to be public"""
+    error_type = "unknown_user_error"
 
-class InternalError(Exception):
-    pass
+class InternalError(BubblesError):
+    """Superclass for all errors that happened internally: configuration
+    issues, connection problems, model inconsistencies..."""
+
+class ConfigurationError(InternalError):
+    """Raised when there is a problem with workspace configuration assumed."""
 
 class MetadataError(BubblesError):
-	"""Error raised on metadata incosistency"""
+	"""Error raised on metadata inconsistency"""
 	pass
 
 class NoSuchFieldError(MetadataError):
-	"""Error raised on metadata incosistency"""
+	"""Error raised on metadata inconsistency"""
 	pass
 
 class FieldOriginError(MetadataError):
@@ -21,16 +30,16 @@ class FieldOriginError(MetadataError):
     pass
 
 class ArgumentError(BubblesError):
-    """Raised when whong argument is passed to a function"""
+    """Raised when wrong argument is passed to a function"""
     pass
 
 class ProbeAssertionError(BubblesError):
-    """Raised when proble assertion fails"""
+    """Raised when probe assertion fails"""
     def __init__(self, reason=None):
         self.reason = reason
 
 class ConsumedError(BubblesError):
-    """Raised wheny trying to read from already consumed object"""
+    """Raised when trying to read from already consumed object"""
     pass
 #
 # DataObject and DataStore errors
