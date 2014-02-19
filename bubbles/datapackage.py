@@ -3,11 +3,50 @@
 from .stores import DataStore
 from .resource import is_local, read_json
 from .objects import data_object
+from .errors import *
+from .metadata import Field, FieldList, DEFAULT_ANALYTICAL_TYPES
 import os
 import json
 from collections import OrderedDict
 
 from urllib.parse import urljoin, urlparse
+
+
+OBJECT_TYPES = {
+    "csv": "csv_source"
+}
+
+# Conversion from JSON Table Schema
+# Source: http://dataprotocols.org/json-table-schema/
+
+def schema_to_fields(fields):
+    """Convert simple data set field list into bubbles field list."""
+    flist = []
+    for i, md in enumerate(fields):
+        if not "name" in md and not "id" in md:
+            raise MetadataError("Field #%d has no name" % i)
+
+        name = md.get("name")
+        if not name:
+            name = md["id"]
+
+        storage_type = md.get("type", "unknown")
+        if storage_type == "any":
+            storage_type = "unknown"
+
+        atype = DEFAULT_ANALYTICAL_TYPES.get(storage_type, "typeless")
+
+        field = Field(name,
+                      storage_type=storage_type,
+                      analytical_type=atype,
+                      label=md.get("title"),
+                      description=md.get("description"),
+                      info=md.get("info"),
+                      size=md.get("size"),
+                      missing_value=md.get("missing_value"))
+        flist.append(field)
+
+    return FieldList(*flist)
 
 class DataPackageResource(object):
     def __init__(self, package, resource):
@@ -28,12 +67,23 @@ class DataPackageResource(object):
         self.name = resource.get("name")
         self.title = resource.get("title")
         self.url = urljoin(package.url, path)
-        self.fields = resource["schema"]["fields"]
+
+        schema = resource.get("schema")
+        if schema:
+            fields = schema.get("fields")
+            self.fields = schema_to_fields(fields)
+        else:
+            self.fields = None
 
         self.type = resource.get("type", os.path.splitext(self.url)[1][1:])
 
+        if self.type not in OBJECT_TYPES:
+            raise TypeError("Data object type '%s' is not supported in "
+                            "datapackage." % self.type)
+
     def dataobject(self):
-        return data_object("csv_source", self.url)
+        return data_object(OBJECT_TYPES[self.type], self.url,
+                           fields=self.fields)
 
 class DataPackage(object):
     def __init__(self, url):
