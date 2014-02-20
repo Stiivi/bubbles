@@ -413,10 +413,7 @@ def aggregate(ctx, obj, key, measures=None, include_count=True,
     # Coalesce to a list if just one is specified
     keys = prepare_key(key)
 
-    if measures:
-        measures = prepare_aggregation_list(measures)
-    else:
-        measures = []
+    measures = prepare_aggregation_list(measures)
 
     # Prepare output fields
     out_fields = FieldList()

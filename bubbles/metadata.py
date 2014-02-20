@@ -679,6 +679,9 @@ def prepare_tuple_list(fields, default_value):
     """Coalesces list of fields to list of tuples. Accepts: a string, list of
     strings, list of tuples `(field, value)`. """
 
+    if not fields:
+        return []
+
     result = []
 
     if not isinstance(fields, (list, tuple, FieldList)):
