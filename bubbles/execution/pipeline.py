@@ -2,6 +2,7 @@
 
 from .context import default_context
 from .engine import ExecutionEngine
+from ..stores import open_store
 from .graph import *
 from ..errors import *
 from ..dev import experimental
@@ -39,7 +40,21 @@ class Pipeline(object):
 
         """
         self.context = context or default_context
-        self.stores = stores or {}
+
+        self.stores = {}
+
+        # List of owned and therefore opened stores
+        self._owned_stores = []
+
+        for name, store in stores.items():
+            if isinstance(store, dict):
+                store = dict(store)
+                type_ = store.pop("type")
+                store = open_store(type_, **store)
+                self._owned_stores.append(store)
+
+            self.stores[name] = store
+
         self.graph = graph or Graph()
         self.name = name
 
@@ -307,4 +322,15 @@ class _PipelineOperation(object):
                 self.pipeline.graph.connect(src_node, node, outlet)
 
         return self.pipeline
+
+def create_pipeline(description):
+    """Create a pipeline from a description. Description should be a list of
+    operation descriptions. The operation is described as a tuple where first
+    item is the operation name followed by operands. Last argument is a
+    dictionary with options.
+
+        ["operation", "operand", "operand", {foo}]
+    """
+
+    raise NotImplementedError
 
