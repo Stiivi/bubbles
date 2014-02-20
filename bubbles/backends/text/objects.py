@@ -380,11 +380,22 @@ class CSVSource(DataObject):
         return ["csv", "rows", "records"]
 
     def rows(self):
+        missing_values = [f.missing_value for f in self.fields]
+
         for row in self.reader:
             result = []
 
             for i, value in enumerate(row):
                 if self.empty_as_null and not value:
+                    result.append(None)
+                    continue
+
+                try:
+                    missing_values[i]
+                except IndexError:
+                    import pdb;pdb.set_trace()
+
+                if missing_values[i] and value == missing_values[i]:
                     result.append(None)
                     continue
 
@@ -397,8 +408,7 @@ class CSVSource(DataObject):
             yield result
 
     def csv_data(self):
-        s = CSVData(self.handle, self.dialect, self.encoding,
-                                                            self.fields)
+        s = CSVData(self.handle, self.dialect, self.encoding, self.fields)
         return s
 
     def records(self):
