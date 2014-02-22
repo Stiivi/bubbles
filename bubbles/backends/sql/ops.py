@@ -1,7 +1,7 @@
 import functools
 from ...operation import operation, RetryOperation
 from ...metadata import Field, FieldList, FieldFilter
-from ...metadata import prepare_aggregation_list
+from ...metadata import prepare_aggregation_list, prepare_order_list
 from ...objects import IterableDataSource
 from ...errors import *
 from .utils import prepare_key, zip_condition, join_on_clause
@@ -202,6 +202,8 @@ def sort(ctx, statement, orderby):
     # Each attribute mentioned in the order should be present in the selection
     # or as some column from joined table. Here we get the list of already
     # selected columns and derived aggregates
+
+    orderby = prepare_order_list(orderby)
 
     columns = []
     for field, order in orderby:
