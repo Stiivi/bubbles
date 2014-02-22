@@ -208,7 +208,7 @@ def _postgres_copy_from(self, connection, table, stream, is_csv=True,
 class SQLDataStore(DataStore):
     """Holds context of SQL store operations."""
 
-    __identifier__ = "sql"
+    __extension_name__ = "sql"
 
     _bubbles_info = {
         "options": [
@@ -415,7 +415,7 @@ class SQLDataStore(DataStore):
     def execute(self, statement, *args, **kwargs):
         """Executes `statement` in store's connectable"""
         # TODO: Place logging here
-        # self.logger.debug("SQL: %s" % str(statement))
+        self.logger.debug("EXECUTE SQL: %s" % str(statement))
         return self.connectable.execute(statement, *args, **kwargs)
 
 class SQLDataObject(DataObject):
