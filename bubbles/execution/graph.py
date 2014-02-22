@@ -85,7 +85,7 @@ class StoreObjectNode(NodeBase):
 
 
     def __str__(self):
-        return "soure %s in %s" % (self.objname, self.store)
+        return "source %s in %s" % (self.objname, self.store)
 
 class ObjectNode(NodeBase):
     def __init__(self, obj):
