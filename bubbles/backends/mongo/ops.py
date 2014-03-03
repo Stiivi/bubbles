@@ -3,7 +3,7 @@ from .objects import MongoDBCollection
 
 from ...metadata import *
 from ...errors import *
-from ...operation import operation
+from ...prototypes import *
 from ...objects import *
 
 def prepare_mongo_key(key):
@@ -14,8 +14,8 @@ def prepare_mongo_key(key):
 #############################################################################
 # Metadata Operations
 
-@operation("mongo")
-def field_filter(ctx, obj, keep=None, drop=None, rename=None, filter=None):
+@field_filter.register("mongo")
+def _(ctx, obj, keep=None, drop=None, rename=None, filter=None):
 
     if rename:
         raise NotImplementedError("Renaming of MongoDB fields is not "
@@ -40,8 +40,8 @@ def field_filter(ctx, obj, keep=None, drop=None, rename=None, filter=None):
 # Row Operations
 
 
-@operation("mongo")
-def distinct(ctx, obj, key=None):
+@distinct.register("mongo")
+def _(ctx, obj, key=None):
 
     if not key:
         key = obj.fields.names()

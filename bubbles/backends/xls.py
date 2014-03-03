@@ -4,7 +4,7 @@ from ..errors import *
 from ..common import get_logger
 from ..metadata import Field, FieldList
 from ..stores import DataStore
-from ..urlresource import Resource
+from ..resource import Resource
 import datetime
 
 try:
@@ -25,8 +25,9 @@ except ImportError:
 
 def _load_workbook(resource, encoding):
         resource = Resource(resource, binary=True)
-        data = resource.handle.read()
-        resource.close()
+
+        with resource.open() as f:
+            data = f.read()
 
         workbook = xlrd.open_workbook(file_contents=data,
                                       encoding_override=encoding)

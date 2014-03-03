@@ -5,7 +5,7 @@ from .errors import *
 from .objects import *
 from .extensions import collect_subclasses
 from .common import get_logger
-from collections import defaultdict, namedtuple, UserList
+from collections import OrderedDict, namedtuple
 from .dev import is_experimental
 
 import itertools
@@ -15,20 +15,11 @@ __all__ = (
             "Signature",
             "Operation",
             "operation",
-            "is_operation",
             "common_representations",
-            "extract_signatures",
+            "get_representations"
         )
 
 Operand = namedtuple("Operand", ["rep", "islist", "isany"])
-
-
-OperationPrototype = namedtuple("OperationPrototype",
-                                [   "name",
-                                    "operand_count",
-                                    "operands",
-                                    "parameters"])
-
 
 def rep_to_operand(rep):
     """Converts representation to `Operand` definition"""
@@ -127,6 +118,11 @@ class Signature(object):
     def description(self):
         return {"args":[str(s) for s in self.signature]}
 
+    def has_any(self):
+        """Returns `True` if at least one operand is `any` (``*``)"""
+        return any(op.isany for op in self.operands)
+
+    # TODO: DEPRECIATE!
     def as_prototype(self):
         """Returns a `Signature` object that serves as a prototype for similar
         signatures. All representations in the prototype signature are set to
@@ -151,116 +147,165 @@ def common_representations(*objects):
 
     return common
 
-def extract_signatures(*objects):
-    """Extract possible signatures."""
+def get_representations(*operands):
+    """For every operand get list of it's representations. Returns list of
+    lists."""
 
-    signatures = []
+    reps = []
     # Get representations of objects
-    for obj in objects:
-        if isinstance(obj, DataObject):
-            signatures.append(obj.representations())
+    for obj in operands:
+        if hasattr(obj, "representations"):
+            reps.append(obj.representations())
         elif isinstance(obj, (list, tuple)):
             common = common_representations(*obj)
             common = [sig + "[]" for sig in common]
-            signatures.append(common)
+            reps.append(common)
         else:
             raise ArgumentError("Unknown type of operation argument "\
                                 "%s (not a data object)" % type(obj).__name__)
-    return signatures
+
+    return reps
 
 class Operation(object):
-    def __init__(self, func, signature, name=None):
-        """Creates an operation with function `func` and `signature`. If
-        `name` is not specified, then function name is used."""
+    def __init__(self, name, operands=None, parameters=None):
+        """Creates an operation with name `name` and `operands`. If `operands`
+        is `none`, then one operand is assumed with name `obj`.
 
-        pysig = inspect.signature(func)
-        if len(pysig.parameters) < len(signature) + 1:
-            raise ArgumentError("Function %s does not have sufficient number of parameters "
-                              "for signature %s. Maybe context parameter "
-                              "missing?" % (func, signature))
+        The `func` should have a signature compatible with `function(context,
+        *operands, **parameters)`
+        """
 
-        self.function = func
-        self.name = name or self.function.__name__
-        self.signature = signature
+        self.name = name
+
+        if operands is None:
+            operands = ["obj"]
+
+        if not operands:
+            raise ArgumentError("Operand list sohuld not be empty.")
+
+        self.operands = operands
+        self.opcount = len(operands)
+        self.parameters = parameters
+
+        self.registry = OrderedDict()
+
+        self.experimental = False
 
     def __eq__(self, other):
         if not isinstance(other, Operation):
             return False
-        return other.function == self.function \
-                and other.name == self.name \
-                and other.signature == self.signature
+        return other.name == self.name \
+                and other.registry == self.registry
 
     def __call__(self, *args, **kwargs):
-        self.function(*args, **kwargs)
+        """Dispatch the operation in the default context."""
+        default_context.dispatch(self, *args, **kwargs)
 
-    def description(self):
-        """Provide a dictionary with operation description. Useful for
-        end-user applications or providing human readable inspection."""
-        d = {
-            "name": self.name,
-            "doc": func.__doc__,
-            "signature": signature.description()
-        }
+    def signatures(self):
+        """Return list of registered signatures."""
+        return list(self.registry.keys())
+
+    def function(self, signature):
+        """Returns a function for `signature`"""
+        return self.registry[signature]
+
+    def resolution_order(self, representations):
+        """Returns ordered list of signatures for `operands`. The generic
+        signatures (those containing at least one ``*``/`any` type are placed
+        at the end of the list.
+
+        Note: The order of the generics is undefined."""
+
+        # TODO: make the order well known, for example by having signatures
+        # sortable
+        generics = []
+        signatures = []
+
+        for sig in self.signatures():
+            if sig.has_any():
+                generics.append(sig)
+            else:
+                signatures.append(sig)
+
+        matches = []
+        gen_matches = []
+        for repsig in itertools.product(*representations):
+            matches += [sig for sig in signatures if sig.matches(*repsig)]
+            gen_matches += [sig for sig in generics if sig.matches(*repsig)]
+
+        matches += gen_matches
+
+        if not matches:
+            raise OperationError("No matching signature found for operation '%s' "
+                                 " (args: %s)" %
+                                    (self.name, representations))
+        return matches
+
+
+    def register(self, *signature, name=None):
+        sig = None
+
+        def register_function(func):
+            nonlocal sig
+            nonlocal name
+
+            # TODO Test for non-keyword arguments for better error reporting
+            func_sig = inspect.signature(func)
+            if len(func_sig.parameters) < (1 + self.opcount):
+                raise ArgumentError("Expected at least %d arguments in %s. "
+                                    "Missing context argument?"
+                                    % (self.opcount + 1, func.__name__))
+
+            self.registry[sig] = func
+            return func
+
+        if signature and callable(signature[0]):
+            func, *signature = signature
+
+            # Create default signature if none is provided
+            if not signature:
+                signature = ["*"] * self.opcount
+
+            sig = Signature(*signature)
+            return register_function(func)
+        else:
+            sig = Signature(*signature)
+            return register_function
 
     def __str__(self):
         return self.name
 
-def is_operation(function):
-    """Returns `True` if `function` is decorated operation."""
-    return isinstance(function, Operation)
 
+def operation(*args):
+    """Creates an operation prototype. The operation will have the same name
+    as the function. Optionaly a number of operands can be specified. If no
+    arguments are given then one operand is assumed."""
+    opcount = 1
 
-def operation(*signature, name=None):
-    """Decorates the function to be an operation"""
+    def decorator(func):
+        nonlocal opcount
 
-    def decorator(fn):
-        if is_operation(fn):
-            raise ArgumentError("Function %s is already an operation (%s)" %
-                                  (fn.function.__name__, fn.name))
-        else:
-            op = Operation(fn, signature=Signature(*signature), name=name)
-        return op
-
-    return decorator
-
-class OperationList(UserList):
-    def __init__(self):
-        super().__init__()
-        self.prototype = None
-
-    def append(self, op):
-        """Appends op to the operation list. If the `op` is first operation,
-        then treat it as prototype and set required operation argument
-        count."""
-
-        if not self.prototype:
-            self.set_prototype(op)
-        if len(op.signature) != self.prototype.operand_count:
-            raise ArgumentError("Number of object arguments (%s) for %s do not"
-                    "match prototype (%s)" % (len(op.signature), op,
-                                              self.prototype.operand_count))
-
-        super().append(op)
-
-    def set_prototype(self, op):
-        """Sets operation prototype for this operation list."""
-        opcount = len(op.signature)
-
-        function_sig = inspect.signature(op.function)
+        # No arguments, this is the decorator
+        # Set default values for the arguments
         # Extract just parameter names (sig.parameters is a mapping)
-        names = tuple(function_sig.parameters.keys())
+        func = args[0]
+        sig = inspect.signature(func)
+        names = tuple(sig.parameters.keys())
         # Set operand names from function parameter names, skip the context
         # parameter and use only as many parameters as operands in the
         # signature
-        operands = names[1:1+opcount]
+        operands = names[1:1 + opcount]
         # ... rest of the names are considered operation parameters
-        parameters = names[1+opcount:]
+        parameters = names[1 + opcount:]
+        op = Operation(func.__name__, operands, parameters)
+        sig = ["*"] * len(operands)
+        op.register(func, *sig)
+        return op
 
-        self.prototype = OperationPrototype(
-                    op.name,
-                    opcount,
-                    operands,
-                    parameters
-                )
-
+    if len(args) == 1 and callable(args[0]):
+        return decorator(args[0])
+    else:
+        # This is just returning the decorator
+        opcount = args[0]
+        return decorator
 

@@ -3,7 +3,7 @@ import itertools
 from collections import defaultdict
 from ..errors import *
 from ..dev import is_experimental
-from ..operation import Operation, OperationList, extract_signatures
+from ..operation import Operation, Signature, get_representations
 from ..common import get_logger
 from ..threadlocal import LocalProxy
 
@@ -53,11 +53,9 @@ class OperationContext(object):
         """
 
         super().__init__()
-        self.operations = defaultdict(OperationList)
-        self.operation_retry_count = retry_count
+        self.operations = {}
+
         self.op = _OperationGetter(self)
-        # TODO: depreciate
-        self.o = self.op
 
         self.logger = get_logger()
         self.observer = LoggingContextObserver(self.logger)
@@ -66,23 +64,14 @@ class OperationContext(object):
         self.retry_allow = []
         self.retry_deny = []
 
-    def operation_list(self, name):
-        """Get list of operation variants for an operation with `name`."""
-
-        if name not in self.operations:
-            self.operation_not_found(name)
+    def operation(self, name):
+        """Get operation by `name`. If operatin does not exist, then
+        `operation_not_found()` is called and the lookup is retried."""
 
         try:
-            ops = self.operations[name]
+            return self.operations[name]
         except KeyError:
-            raise OperationError("Unable to find operation %s" % name)
-
-        return ops
-
-    def operation_prototype(self, name):
-        """Returns a prototype signature for operation `name`"""
-        oplist = self.operation_list(name)
-        return oplist.prototype
+            return self.operation_not_found(name)
 
     def add_operations_from(self, obj):
         """Import operations from `obj`. All attributes of `obj` are
@@ -98,43 +87,14 @@ class OperationContext(object):
         """Registers a decorated operation.  operation is considered to be a
         context's method and would receive the context as first argument."""
 
-        if op.name not in self.operations:
-            self.operations[op.name] = OperationList()
+        self.operations[op.name] = op
 
-        if any(c.signature == op.signature for c in self.operations[op.name]):
-            raise ArgumentError("Operation %s with signature %s already "
-                                "registered" % (op.name, op.signature))
-
-        self.operations[op.name].append(op)
-
-    def remove_operation(self, name, signature=None):
+    def remove_operation(self, name):
         """Removes all operations with `name` and `signature`. If no
         `signature` is specified, then all operations with given name are
         removed, regardles of the signature."""
 
-        operations = self.operations.get(name)
-        if not operations:
-            return
-        elif not signature:
-            del self.operations[name]
-            return
-
-        newops = [op for op in operations if op.signature != signature]
-        self.operations[name] = newops
-
-    def operation_list(self, name):
-        """Return a list of operations with `name`. If no list is found, then
-        `operation_not_found(name)` is called. See `operation_not_found` for
-        more information"""
-        # Get all signatures registered for the operation
-        operations = self.operations[name]
-        if not operations:
-            self.operation_not_found(name)
-            operations = self.operations[name]
-            if not operations:
-                raise OperationError("Unable to find operation %s" % name)
-
-        return operations
+        del self.operations[name]
 
     def operation_not_found(self, name):
         """Subclasses might override this method to load necessary modules and
@@ -153,12 +113,6 @@ class OperationContext(object):
                 return op
         raise OperationError("No operation '%s' with signature '%s'" %
                                                         (name, signature))
-
-    def operation(self, name):
-        """Returns a bound operation with `name`"""
-
-        return _OperationReference(self, name)
-
     def debug_print_catalogue(self):
         """Pretty prints the operation catalogue – all operations, their
         signatures and function references. Used for debugging purposes."""
@@ -191,22 +145,22 @@ class OperationContext(object):
         return True
 
     def call(self, op_name, *args, **kwargs):
-        """Call operation with `name`. Arguments are passed to the
-        operation"""
+        """Dispatch and call operation with `name`. Arguments are passed to the
+        operation, If the operation raises `RetryOperation` then another
+        function with signature from the exception is tried. If no signature
+        is provided in the exception, then next matching signature is used."""
 
-        oplist = self.operation_list(op_name)
-        argc = oplist.prototype.operand_count
-        match_objects = args[0:argc]
+        op = self.operation(op_name)
+        operands = args[:op.opcount]
 
-        # Find best signature match for the operation based on object
-        # arguments
-        op = self.lookup_operation(op_name, *match_objects)
+        reps = get_representations(*operands)
+        resolution_order = op.resolution_order(reps)
+        first_signature = resolution_order[0]
 
         if self.observer:
-            self.observer.will_call_operation(self, op)
+            self.observer.will_call_operation(self, op, first_signature)
 
         result = None
-        retries = 0
 
         # We try to perform requested operation. If the operation raises
         # RetryOperation exception, then we use signature from the exception
@@ -214,115 +168,82 @@ class OperationContext(object):
         # of times.
         # Observer is notified about each retry.
 
-        # TODO: allow retry without a signature
-        # This will require to have a prepared list of matching operations and
-        # number of retries will be number of operations in the list.
+        visited = set()
 
-        try:
-            if is_experimental(op.function):
-                self.logger.warn("operation %s is experimental" % \
-                                    op_name)
-            result = op.function(self, *args, **kwargs)
-        except RetryOperation as e:
-            if not self.can_retry(op_name):
-                raise RetryError("Retry of operation '%s' is not allowed")
+        while resolution_order:
+            sig = resolution_order.pop(0)
+            visited.add(sig)
 
-            signature = e.signature
-            reason = e.reason
-            success = False
+            try:
+                function = op.function(sig)
+            except KeyError:
+                raise OperationError("No signature (%s) in operation %s"
+                                     % (sig, op_name))
 
-            for i in range(0, self.retry_count):
-                op = self.get_operation(op_name, signature)
-                retries += 1
+            try:
+                if op.experimental:
+                    self.logger.warn("operation %s is experimental" % \
+                                        op_name)
+                result = function(self, *args, **kwargs)
+
+            except RetryOperation as e:
+                if not self.can_retry(op_name):
+                    raise RetryError("Retry of operation '%s' is not allowed")
+
+                retry = e.signature
+
+                if retry:
+                    retry = Signature(*retry)
+
+                    if retry in visited:
+                        raise RetryError("Asked to retry operation %s with "
+                                         "signature %s, but it was already "
+                                         "visited."
+                                         % (op_name, retry))
+
+                    resolution_order.insert(0, retry)
+
+                elif retry:
+                    retry = resolution_order[0]
 
                 if self.observer:
-                    self.observer.will_retry_operation(self, op, reason)
+                    self.observer.will_retry_operation(self, op, retry,
+                                                       first_signature,
+                                                       str(e))
+            else:
+                # Let the observer know which operation was called at last and
+                # completed sucessfully
+                if self.observer:
+                    self.observer.did_call_operation(self, op, sig,
+                                                     first_signature)
+                return result
 
-                try:
-                    result = op.function(self, *args, **kwargs)
-                except RetryOperation as e:
-                    signature = e.signature
-                    reason = e.reason
-                else:
-                    success = True
-                    break
+        raise RetryError("No remaining signature to rerty when calling "
+                         "operation %s with %s"
+                         % (op_name, first_signature))
 
-            if not success:
-                raise RetryError("Operation retry limit reached "
-                                     "(allowed: %d)" % self.retry_count)
-
-        # Let the observer know which operation was called at last and
-        # completed sucessfully
-
-        if self.observer:
-            self.observer.did_call_operation(self, op, retries)
-
-        return result
-
-    def lookup_operation(self, name, *objlist):
-        """Returns a matching operation for given data objects as arguments.
-        This is the main lookup method of the operation context.
-
-        Lookup is performed for all representations of objects, the first
-        matching signature is accepted. Order of representations returned by
-        object's `representations()` matters here.
-
-        Returned object is a OpFunction tuple with attributes: `name`, `func`,
-        `signature`.
-
-        Note: If the match does not fit your expectations, it is recommended
-        to pefrom explicit object conversion to an object with desired
-        representation.
-        """
-
-        operations = self.operation_list(name)
-        if not operations:
-            # TODO: check parent context
-            raise OperationError("No known signatures for operation '%s'" %
-                                    name)
-
-        # TODO: add some fall-back mechanism when no operation signature is
-        # found
-        # Extract signatures from arguments
-
-        arg_signatures = extract_signatures(*objlist)
-        match = None
-        for arguments in itertools.product(*arg_signatures):
-            for op in operations:
-                if op.signature.matches(*arguments):
-                    match = op
-                    break
-            if match:
-                break
-
-        if match:
-            return match
-
-        raise OperationError("No matching signature found for operation '%s' "
-                             " (args: %s)" %
-                                (name, arg_signatures))
 
 class LoggingContextObserver(object):
     def __init__(self, logger=None):
         self.logger = logger
 
-    def will_call_operation(self, ctx, op):
+    def will_call_operation(self, ctx, op, signature):
         logger = self.logger or ctx.logger
-        logger.info("calling %s(%s)" % (op, op.signature))
+        logger.info("calling %s(%s)" % (op, signature))
 
-    def did_call_operation(self, ctx, op, retries):
+    def did_call_operation(self, ctx, op, signature, first):
         logger = self.logger or ctx.logger
 
-        if not retries:
-            logger.debug("called %s(%s)" % (op, op.signature))
+        if first == signature:
+            logger.debug("called %s(%s)" % (op, signature))
         else:
-            logger.debug("called %s(%s) wth %s retries" % \
-                                (op, op.signature, retries))
+            logger.debug("called %s(%s) as %s" % \
+                                (op, signature, first))
 
-    def will_retry_operation(self, ctx, op, reason):
+    def will_retry_operation(self, ctx, op, signature, first, reason):
         logger = self.logger or ctx.logger
-        logger.info("retry %s(%s), reason: %s" %
-                                        (op, op.signature, reason))
+        logger.info("retry %s(%s) as %s, reason: %s" %
+                                        (op, first, signature, reason))
 
 class CollectingContextObserver(object):
     def __init__(self):
@@ -343,15 +264,25 @@ class CollectingContextObserver(object):
         self.history.append(line)
 
 
+class BoundOperation(object):
+    def __init__(self, context, opname):
+        self.context = context
+        self.opname = opname
+
+    def __call__(self, *args, **kwargs):
+        return self.context.call(self.opname, *args, **kwargs)
+
+
 class _OperationGetter(object):
     def __init__(self, context):
         self.context = context
 
     def __getattr__(self, name):
-        return self.context.operation(name)
+        return BoundOperation(self.context, name)
 
     def __getitem__(self, name):
-        return self.context.operation(name)
+        return BoundOperation(self.context, name)
+
 
 def create_default_context():
     """Creates a ExecutionContext with default operations."""

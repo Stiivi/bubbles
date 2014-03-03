@@ -1,5 +1,6 @@
 import functools
-from ...operation import operation, RetryOperation
+from ...operation import RetryOperation
+from ...prototypes import *
 from ...metadata import Field, FieldList, FieldFilter
 from ...metadata import prepare_aggregation_list, prepare_order_list
 from ...objects import IterableDataSource
@@ -15,34 +16,6 @@ except ImportError:
                                 comment = "Recommended version is > 0.7")
     sql = sqlalchemy
 
-__all__ = (
-        "as_records",
-        "distinct",
-        "distinct_rows",
-        "distinct_rows",
-        "append",
-        "sample",
-        "field_filter",
-        "filter_by_value",
-        "append_constant_fields",
-        "count_duplicates",
-        "sort",
-        "join_details",
-        "join_details2",
-        "duplicate_stats",
-        "nonempty_count",
-        "distinct_count",
-        "added_keys",
-        "added_rows",
-        "added_rows2",
-        "changed_rows",
-        "load_versioned_dimension",
-        "dates_to_dimension",
-        "assert_unique",
-    )
-
-
-
 def _unary(func):
     @functools.wraps(func)
     def decorator(ctx, obj, *args, **kwargs):
@@ -54,8 +27,8 @@ def _unary(func):
 #############################################################################
 # Metadata Operations
 
-@operation("sql")
-def field_filter(ctx, obj, keep=None, drop=None, rename=None):
+@field_filter.register("sql")
+def _(ctx, obj, keep=None, drop=None, rename=None):
     """Returns a statement with fields according to the field filter"""
     # TODO: preserve order of "keep" -> see FieldFilter
 
@@ -87,8 +60,8 @@ def field_filter(ctx, obj, keep=None, drop=None, rename=None):
 # Row Operations
 
 
-@operation("sql")
-def filter_by_value(ctx, src, key, value, discard=False):
+@filter_by_value.register("sql")
+def _(ctx, src, key, value, discard=False):
     """Returns difference between left and right statements"""
 
     if isinstance(key, (list, tuple)) and \
@@ -108,8 +81,8 @@ def filter_by_value(ctx, src, key, value, discard=False):
     return src.clone_statement(statement=statement)
 
 
-@operation("sql")
-def filter_by_range(ctx, src, field, low, high, discard=False):
+@filter_by_range.register("sql")
+def _(ctx, src, field, low, high, discard=False):
     """Filter by range: field should be between low and high."""
 
     statement = src.sql_statement()
@@ -134,13 +107,13 @@ def filter_by_range(ctx, src, field, low, high, discard=False):
     return src.clone_statement(statement=statement)
 
 
-@operation("sql")
-def filter_by_set(ctx, obj, key, value_set, discard=False):
+@filter_by_set.register("sql")
+def _(ctx, obj, key, value_set, discard=False):
     raise RetryOperation(["rows"], reason="Not implemented")
 
 
-@operation("sql")
-def filter_not_empty(ctx, obj, field):
+@filter_not_empty.register("sql")
+def _(ctx, obj, field):
     statement = obj.sql_statement()
 
     column = statement.c[str(field)]
@@ -152,13 +125,13 @@ def filter_not_empty(ctx, obj, field):
 
     return obj.clone_statement(statement=statement)
 
-@operation("sql")
-def filter_by_predicate(ctx, obj, fields, predicate, discard=False):
+@filter_by_predicate.register("sql")
+def _(ctx, obj, fields, predicate, discard=False):
     raise RetryOperation(["rows"], reason="Not implemented")
 
 
-@operation("sql")
-def distinct(ctx, obj, keys=None):
+@distinct.register("sql")
+def _(ctx, obj, keys=None):
     """Returns a statement that selects distinct values for `keys`"""
 
     statement = obj.sql_statement()
@@ -175,16 +148,16 @@ def distinct(ctx, obj, keys=None):
     return obj.clone_statement(statement=statement, fields=fields)
 
 
-@operation("sql")
-def first_unique(ctx, statement, keys=None):
+@first_unique.register("sql")
+def _(ctx, statement, keys=None):
     """Returns a statement that selects whole rows with distinct values
     for `keys`"""
     # TODO: use prepare_key
     raise NotImplementedError
 
-@operation("sql")
+@sample.register("sql")
 @_unary
-def sample(ctx, statement, value, mode="first"):
+def _(ctx, statement, value, mode="first"):
     """Returns a sample. `statement` is expected to be ordered."""
 
     if mode == "first":
@@ -193,9 +166,9 @@ def sample(ctx, statement, value, mode="first"):
         raise RetryOperation(["rows"], reason="Unhandled mode '%s'" % mode)
 
 
-@operation("sql")
+@sort.register("sql")
 @_unary
-def sort(ctx, statement, orderby):
+def _(ctx, statement, orderby):
     """Returns a ordered SQL statement. `orders` should be a list of
     two-element tuples `(field, order)`"""
 
@@ -231,8 +204,8 @@ aggregation_functions = {
 }
 
 
-@operation("sql")
-def aggregate(ctx, obj, key, measures=None, include_count=True,
+@aggregate.register("sql")
+def _(ctx, obj, key, measures=None, include_count=True,
               count_field="record_count"):
 
     """Aggregate `measures` by `key`"""
@@ -281,8 +254,8 @@ def aggregate(ctx, obj, key, measures=None, include_count=True,
 #############################################################################
 # Field Operations
 
-@operation("sql")
-def append_constant_fields(ctx, obj, fields, values):
+@append_constant_fields.register("sql")
+def _(ctx, obj, fields, values):
     statement = obj.sql_statement()
 
     new_fields = obj.fields + FieldList(*fields)
@@ -295,8 +268,8 @@ def append_constant_fields(ctx, obj, fields, values):
 
     return result
 
-@operation("sql")
-def dates_to_dimension(ctx, obj, fields=None, unknown_date=0):
+@dates_to_dimension.register("sql")
+def _(ctx, obj, fields=None, unknown_date=0):
     """Update all date fields to be date IDs. `unknown_date` is a key to date
     dimension table for unspecified date (NULL in the source).
     `fields` is list of date fields. If not specified, then all date fields
@@ -340,8 +313,8 @@ def dates_to_dimension(ctx, obj, fields=None, unknown_date=0):
     # TODO: mark date fields to be integers
     return obj.clone_statement(statement=statement, fields=fields)
 
-@operation("sql")
-def split_date(ctx, obj, fields, parts=["year", "month", "day"]):
+@split_date.register("sql")
+def _(ctx, obj, fields, parts=["year", "month", "day"]):
     """Extract `parts` from date objects replacing the original date field
     with parts field."""
 
@@ -402,8 +375,8 @@ def split_date(ctx, obj, fields, parts=["year", "month", "day"]):
 #############################################################################
 # Compositions
 
-@operation("sql[]")
-def append(ctx, objects):
+@append.register("sql[]")
+def _(ctx, objects):
     """Returns a statement with sequentialy concatenated results of the
     `statements`. Statements are chained using ``UNION``."""
     first = objects[0]
@@ -418,8 +391,8 @@ def append(ctx, objects):
     return first.clone_statement(statement=statement)
 
 
-@operation("sql", "sql")
-def join_details(ctx, master, detail, master_key, detail_key):
+@join_details.register("sql", "sql")
+def _(ctx, master, detail, master_key, detail_key):
     """Creates a master-detail join using simple or composite keys. The
     columns used as a key in the `detail` object are not included in the
     result.
@@ -465,8 +438,8 @@ def join_details(ctx, master, detail, master_key, detail_key):
     return master.clone_statement(statement=select, fields=out_fields)
 
 # TODO: depreciated
-@operation("sql", "sql[]", name="join_details")
-def join_details2(ctx, master, details, joins):
+@join_details.register("sql", "sql[]", name="join_details")
+def _(ctx, master, details, joins):
     """Creates left inner master-detail join (star schema) where `master` is an
     iterator if the "bigger" table `details` are details. `joins` is a list of
     tuples `(master, detail)` where the master is index of master key and
@@ -531,8 +504,8 @@ def join_details2(ctx, master, details, joins):
     return master.clone_statement(statement=select, fields=out_fields)
 
 
-@operation("sql", "sql")
-def added_keys(ctx, src, target, src_key, target_key=None):
+@added_keys.register("sql", "sql")
+def _(ctx, src, target, src_key, target_key=None):
     """Returns difference between left and right statements"""
 
     # FIXME: add composition checking
@@ -556,8 +529,8 @@ def added_keys(ctx, src, target, src_key, target_key=None):
     return src.clone_statement(statement=diff)
 
 
-@operation("sql", "sql")
-def added_rows(ctx, src, target, src_key, target_key=None):
+@added_rows.register("sql", "sql")
+def _(ctx, src, target, src_key, target_key=None):
     diff = ctx.added_keys(src, target, src_key, target_key)
 
     diff_stmt = diff.sql_statement()
@@ -577,8 +550,8 @@ def added_rows(ctx, src, target, src_key, target_key=None):
     return src.clone_statement(statement=join)
 
 
-@operation("rows", "sql", name="added_rows")
-def added_rows2(ctx, src, target, src_key, target_key=None):
+@added_rows.register("rows", "sql", name="added_rows")
+def _(ctx, src, target, src_key, target_key=None):
 
     src_key = prepare_key(src_key)
 
@@ -614,8 +587,8 @@ def added_rows2(ctx, src, target, src_key, target_key=None):
 # TODO: create decorator @target that will check first argument whether it is
 # a target or not
 
-@operation("sql", "sql")
-def changed_rows(ctx, dim, source, dim_key, source_key, fields, version_field):
+@changed_rows.register("sql", "sql")
+def _(ctx, dim, source, dim_key, source_key, fields, version_field):
     """Return an object representing changed dimension rows.
 
     Arguments:
@@ -656,8 +629,8 @@ def changed_rows(ctx, dim, source, dim_key, source_key, fields, version_field):
 # Loading
 
 # TODO: continue here
-@operation("sql_table", "sql")
-def load_versioned_dimension(ctx, dim, source, dim_key, fields,
+@load_versioned_dimension.register("sql_table", "sql")
+def _(ctx, dim, source, dim_key, fields,
                              version_fields=None, source_key=None):
     """Type 2 dimension loading."""
     # Now I need to stay in the same kernel!
@@ -669,8 +642,8 @@ def load_versioned_dimension(ctx, dim, source, dim_key, fields,
 # Auditing
 
 
-@operation("sql")
-def count_duplicates(ctx, obj, keys=None, threshold=1,
+@count_duplicates.register("sql")
+def _(ctx, obj, keys=None, threshold=1,
                        record_count_label="record_count"):
     """Returns duplicate rows based on `keys`. `threshold` is lowest number of
     duplicates that has to be present to be returned. By default `threshold`
@@ -706,8 +679,8 @@ def count_duplicates(ctx, obj, keys=None, threshold=1,
     result = obj.clone_statement(statement=statement, fields=out_fields)
     return result
 
-@operation("sql_statement")
-def duplicate_stats(ctx, obj, fields=None, threshold=1):
+@duplicate_stats.register("sql_statement")
+def _(ctx, obj, fields=None, threshold=1):
     """Return duplicate statistics of a `statement`"""
     count_label = "__record_count"
     dups = duplicates(obj, threshold, count_label)
@@ -726,8 +699,8 @@ def duplicate_stats(ctx, obj, fields=None, threshold=1):
     result = obj.clone_statement(statement=result_stat, fields=fields)
     return result
 
-@operation("sql")
-def nonempty_count(ctx, obj, fields=None):
+@nonempty_count.register("sql")
+def _(ctx, obj, fields=None):
     """Return count of empty fields for the object obj"""
 
     # FIXME: add fields
@@ -750,8 +723,8 @@ def nonempty_count(ctx, obj, fields=None):
 
     # field, key, key, key, empty_count
 
-@operation("sql")
-def distinct_count(ctx, obj, fields=None):
+@distinct_count.register("sql")
+def _(ctx, obj, fields=None):
     """Return count of empty fields for the object obj"""
 
     # FIXME: add fields
@@ -781,8 +754,8 @@ def distinct_count(ctx, obj, fields=None):
 # Assertions
 
 
-@operation("sql")
-def assert_unique(ctx, obj, key=None):
+@assert_unique.register("sql")
+def _(ctx, obj, key=None):
     """Checks whether the receiver has unique values for `key`. If `key` is
     not specified, then all fields from `obj` are considered."""
 
@@ -811,8 +784,8 @@ def assert_unique(ctx, obj, key=None):
 
     return obj
 
-@operation("sql")
-def assert_contains(ctx, obj, field, value):
+@assert_contains.register("sql")
+def _(ctx, obj, field, value):
     statement = obj.sql_statement().alias("__u")
     column = statement.c[str(field)]
 
@@ -831,8 +804,8 @@ def assert_contains(ctx, obj, field, value):
 
     return obj
 
-@operation("sql")
-def assert_missing(ctx, obj, field, value):
+@assert_missing.register("sql")
+def _(ctx, obj, field, value):
     # statement = obj.sql_statement().alias("__u")
     statement = obj.sql_statement()
     column = statement.c[str(field)]
@@ -855,8 +828,8 @@ def assert_missing(ctx, obj, field, value):
 # Conversions
 
 
-@operation("sql")
-def as_records(ctx, obj):
+@as_records.register("sql")
+def _(ctx, obj):
     """Return object with records representation."""
     # SQL Alchemy result can be used as both - records or rows, so we just
     # return the object:
@@ -867,8 +840,8 @@ def as_records(ctx, obj):
 #############################################################################
 # Loading
 
-@operation("sql", "sql")
-def insert(ctx, source, target):
+@insert.register("sql", "sql")
+def _(ctx, source, target):
     if not target.can_compose(src):
         raise RetryOperation(["rows"])
 
@@ -883,8 +856,8 @@ def insert(ctx, source, target):
 
     return target
 
-@operation("rows", "sql")
-def insert(ctx, source, target):
+@insert.register("rows", "sql")
+def _(ctx, source, target):
 
     if len(source.fields) > len(target.fields):
          raise OperationError("Number of source fields %s is greater than "

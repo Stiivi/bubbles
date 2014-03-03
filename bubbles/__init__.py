@@ -4,11 +4,10 @@ from .objects import *
 from .operation import *
 from .common import *
 from .stores import *
-from .backends import *
 from .datautil import *
 from .execution import *
 from .resource import *
 
-__version__ = "0.2"
+__version__ = "0.3"
 
 

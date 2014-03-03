@@ -37,7 +37,7 @@ class TextObject(DataObject):
     def text(self):
         return self.string
 
-class KernelTestCase(unittest.TestCase):
+class OperationTestCase(unittest.TestCase):
     def test_match(self):
         self.assertTrue(Signature("sql").matches("sql"))
         self.assertTrue(Signature("*").matches("sql"))
@@ -76,112 +76,173 @@ class KernelTestCase(unittest.TestCase):
         self.assertEqual(match, proto.as_prototype())
 
     def test_create_op(self):
-        def fun(ctx, a, b):
+        def one(ctx, obj):
+            pass
+        def fun(ctx, left, right):
             pass
 
-        self.assertFalse(is_operation(fun))
+        with self.assertRaises(ArgumentError):
+            Operation("fun", [])
 
-        op = Operation(fun, Signature("sql", "rows"))
+        op = Operation("fun")
+        self.assertEqual(1, op.opcount)
+        self.assertEqual(["obj"], op.operands)
 
-        self.assertEqual("fun", op.name)
-        self.assertEqual("sql", op.signature[0])
-
-        op2 = operation("sql", "rows")(fun)
-
-        self.assertEqual("fun", op.name)
-        self.assertEqual("sql", op.signature[0])
-
-        self.assertEqual(op.function, op2.function)
-        self.assertEqual(op.name, op2.name)
-        self.assertEqual(op.signature, op2.signature)
-        self.assertEqual(op, op2)
+        op = Operation("fun", ["left", "right"])
+        self.assertEqual(2, op.opcount)
 
     def test_register(self):
         def func(ctx, obj):
             pass
 
-        c = OperationContext()
-        self.assertFalse(c.operations["func"])
+        def func_sql(ctx, obj):
+            pass
 
-        c.add_operation(Operation(func, Signature("sql")))
-        self.assertTrue(c.operations["func"])
+        def func_text(ctx, obj):
+            pass
 
-        c.add_operation(Operation(func, Signature("sql"), name="other"))
-        self.assertTrue(c.operations["other"])
+        op = Operation("select", ["obj"])
 
-        with self.assertRaises(ArgumentError):
-            c.add_operation(Operation(func, Signature("sql")))
+        op.register(func)
+        self.assertEqual(1, len(op.registry))
+        self.assertEqual([Signature("*")], list(op.registry.keys()))
 
-    def test_register_decorated(self):
+        op.register(func_sql, "sql")
+        op.register(func_text, "text")
+        self.assertEqual(3, len(op.registry))
+
+        sigs = []
+        for s in op.signatures():
+            sigs.append([op.rep for op in s.operands])
+
+        self.assertSequenceEqual(sigs, [["*"], ["sql"], ["text"]])
+
+        f = op.function(Signature("*"))
+        self.assertEqual(f, func)
+        f = op.function(Signature("sql"))
+        self.assertEqual(f, func_sql)
+        f = op.function(Signature("text"))
+        self.assertEqual(f, func_text)
+
+    def test_register_invalid(self):
+        def func_invalid(obj):
+            pass
+
+        def func_invalid2(ctx, obj):
+            pass
+
+        op = Operation("select")
+
+        with self.assertRaisesRegexp(ArgumentError, "Expected at least"):
+            op.register(func_invalid)
+
+    def test_decorator(self):
+
+        op = Operation("select", ["obj"])
+
+        @op.register
         def func(ctx, obj):
             pass
 
-        c = OperationContext()
+        sig = Signature("*")
+        self.assertEqual(1, len(op.registry))
+        self.assertEqual([sig], list(op.registry.keys()))
+        self.assertEqual(func, op.registry[sig])
 
-        op = Operation(func, ["rows"])
-        c.add_operation(op)
-        self.assertTrue(c.operations["func"])
-
-        with self.assertRaises(ArgumentError):
-            c.add_operation(op)
-
-    def test_prototype(self):
-        def join(ctx, master, detail, master_key, detail_key):
+        @op.register("sql")
+        def func_sql(ctx, obj):
             pass
 
-        c = OperationContext()
+        sig = Signature("sql")
+        self.assertEqual(2, len(op.registry))
+        self.assertEqual(func_sql, op.registry[sig])
 
-        op = Operation(join, Signature("rows", "rows"))
-        c.add_operation(op)
-
-        proto = c.operation_prototype("join")
-        self.assertEqual(2, proto.operand_count)
-        self.assertSequenceEqual(["master", "detail"], proto.operands)
-        self.assertSequenceEqual(["master_key", "detail_key"],
-                                 proto.parameters)
-
-
-    def test_extract_signatures(self):
-        obj = DummyDataObject(["rows", "sql"])
-        self.assertEqual( [["rows", "sql"]], extract_signatures(obj))
-
-        obj = DummyDataObject(["rows", "sql"])
-        extr = extract_signatures([obj])
-        self.assertEqual( [["rows[]", "sql[]"]], extr)
-
-    def test_lookup(self):
-        c = OperationContext()
-
-        obj_sql = DummyDataObject(["sql"])
-        obj_rows = DummyDataObject(["rows"])
-
-        c.add_operation(Operation(unary, signature=Signature("sql")))
-        c.add_operation(Operation(default, name="unary",
-                                signature=Signature("*")))
-
-        match = c.lookup_operation("unary", obj_sql)
-        self.assertEqual(unary, match.function)
-
-        match = c.lookup_operation("unary", obj_rows)
-        self.assertEqual(default, match.function)
-
-        with self.assertRaises(OperationError):
-            c.lookup_operation("foo", obj_sql)
-
-        with self.assertRaises(OperationError):
-            c.lookup_operation("unary", obj_sql, obj_sql)
-
-    def test_lookup_additional_args(self):
-        def func(ctx, obj, value):
+        # Test decorator implicitly creating Operation
+        @operation
+        def implicit(ctx, obj):
             pass
 
+        self.assertIsInstance(implicit, Operation)
+        self.assertEqual("implicit", implicit.name)
+
+    def test_context(self):
         c = OperationContext()
-        c.add_operation(Operation(func,
-                                signature=Signature("rows")))
+
+        with self.assertRaises(KeyError):
+            c.operations["select"]
+
+        with self.assertRaises(OperationError):
+            c.operation("select")
+
+        c.add_operation(Operation("select"))
+        op = c.operations["select"]
+
+        @operation
+        def touch(ctx, obj):
+            pass
+
+        c.add_operation(touch)
+        op = c.operations["touch"]
+
+    def test_resolution_order(self):
+        @operation
+        def upper(ctx, obj):
+            pass
 
         obj = DummyDataObject(["rows"])
 
-        c.o.func(obj, 1)
+        order = upper.resolution_order(get_representations(obj))
+        self.assertEqual([Signature("*")], order)
+
+        @upper.register("rows")
+        def _(ctx, obj):
+            pass
+
+        order = upper.resolution_order(get_representations(obj))
+        self.assertEqual([Signature("rows"),
+                          Signature("*")], order)
+
+    def test_call(self):
+        @operation
+        def upper(ctx, obj):
+            return obj.text().upper()
+
+        c = OperationContext()
+        c.add_operation(upper)
+
+        obj = TextObject("hi there")
+        result = c.call("upper", obj)
+        self.assertEqual("HI THERE", result)
+
+    def test_call_context_op(self):
+        op = Operation("upper")
+        @op.register("rows")
+        def _(ctx, obj):
+            rows = obj.rows()
+            text = "".join(rows)
+            return list(text.upper())
+
+        @op.register("text")
+        def _(ctx, obj):
+            text = obj.text()
+            return list(text.upper())
+
+
+        c = OperationContext()
+        c.add_operation(op)
+
+        obj = TextObject("windchimes")
+
+        result = c.op.upper(obj)
+        self.assertEqual(list("WINDCHIMES"), result)
+
+    def test_get_representations(self):
+        obj = DummyDataObject(["rows", "sql"])
+        self.assertEqual( [["rows", "sql"]], get_representations(obj))
+
+        obj = DummyDataObject(["rows", "sql"])
+        extr = get_representations([obj])
+        self.assertEqual( [["rows[]", "sql[]"]], extr)
 
     def test_comparison(self):
         sig1 = Signature("a", "b", "c")
@@ -195,86 +256,59 @@ class KernelTestCase(unittest.TestCase):
         self.assertTrue(sig1 == ["a", "b", "c"])
         self.assertFalse(sig1 == ["a", "b"])
 
-    def test_delete(self):
-        c = OperationContext()
-        obj = DummyDataObject(["rows"])
-
-        c.add_operation(Operation(unary, signature=Signature("rows")))
-        c.add_operation(Operation(default, name="unary", signature=Signature("*")))
-
-        match = c.lookup_operation("unary", obj)
-        self.assertEqual(unary, match.function)
-
-        c.remove_operation("unary", ["rows"])
-        match = c.lookup_operation("unary", obj)
-        self.assertEqual(default, match.function)
-
-        c.remove_operation("unary")
-        with self.assertRaises(OperationError):
-            c.lookup_operation("unary", obj)
-
-    def test_running(self):
-        def func_text(ctx, obj):
-            text = obj.text()
-            return list(text.upper())
-
-        def func_rows(ctx, obj):
-            rows = obj.rows()
-            text = "".join(rows)
-            return list(text.upper())
-
-        c = OperationContext()
-        c.add_operation(Operation(func_text, name="upper",
-                                signature=Signature("text")))
-        c.add_operation(Operation(func_rows, name="upper",
-                                signature=Signature("rows")))
-
-        obj = TextObject("windchimes")
-
-        result = c.o.upper(obj)
-        self.assertEqual(list("WINDCHIMES"), result)
-        # func = om.match("upper")
-
     def test_retry(self):
-        @operation("sql", "sql", name="join")
-        def join_sql(ctx, l, r):
+        op = Operation("join", ["left", "right"])
+
+        @op.register("sql", "sql")
+        def _(ctx, l, r):
             if l.data == r.data:
                 return "SQL"
             else:
                 raise RetryOperation(["sql", "rows"])
 
-        @operation("sql", "rows", name="join")
-        def join_iter(ctx, l, r):
+        @op.register("sql", "rows")
+        def _(ctx, l, r):
             return "ITERATOR"
-
-        @operation("sql", "sql")
-        def endless(ctx, l, r):
-            raise RetryOperation(["sql", "sql"])
 
         local = DummyDataObject(["sql", "rows"], "local")
         remote = DummyDataObject(["sql", "rows"], "remote")
 
         c = OperationContext()
-        c.add_operation(join_sql)
-        c.add_operation(join_iter)
+        c.add_operation(op)
 
-        result = c.o.join(local, local)
+        result = c.op.join(local, local)
         self.assertEqual(result, "SQL")
 
-        result = c.o.join(local, remote)
+        result = c.op.join(local, remote)
         self.assertEqual(result, "ITERATOR")
 
-        c.add_operation(endless)
+        fail = Operation("fail", ["left", "right"])
+        @fail.register("sql", "rows")
+        def _(ctx, l, r):
+            raise RetryOperation(["sql", "sql"])
+        c.add_operation(fail)
+
+        with self.assertRaises(OperationError):
+            c.op.fail(local, local)
+
+        # Already visited
+        repeat = Operation("repeat", ["left", "right"])
+        @repeat.register("sql", "sql")
+        def _(ctx, l, r):
+            raise RetryOperation(["sql", "sql"])
+        c.add_operation(repeat)
+
         with self.assertRaises(RetryError):
-            result = c.o.endless(local, local)
+            c.op.repeat(local, local)
 
     def test_allow_deny_retry(self):
-        @operation("sql")
-        def swim(ctx, obj):
+        swim = Operation("swim", ["obj"])
+        @swim.register("sql")
+        def _(ctx, obj):
             raise RetryOperation(["rows"])
 
-        @operation("rows", name="swim")
-        def swim_rows(ctx, obj):
+        @swim.register("rows")
+        def _(ctx, obj):
             obj.data = "good"
             return obj
 
@@ -282,7 +316,6 @@ class KernelTestCase(unittest.TestCase):
 
         c = OperationContext()
         c.add_operation(swim)
-        c.add_operation(swim_rows)
 
         result = c.op.swim(obj)
         self.assertEqual("good", result.data)
@@ -307,28 +340,29 @@ class KernelTestCase(unittest.TestCase):
         """Test whether failed nested operation fails correctly (Because of
         Issue #4)."""
 
-        @operation("sql")
-        def aggregate(ctx, obj, fail):
+        aggregate = Operation("aggregate", ["obj"])
+        @aggregate.register("sql")
+        def _(ctx, obj, fail):
             if fail:
                 raise RetryOperation(["rows"])
             else:
                 obj.data += "-SQL-"
             return obj
 
-        @operation("rows", name="aggregate")
-        def aggregate_rows(ctx, obj, fail):
+        @aggregate.register("rows")
+        def _(ctx, obj, fail):
             obj.data += "-ROWS-"
             return obj
 
-        @operation("sql")
-        def window_aggregate(ctx, obj, fail):
+        window_aggregate = Operation("window_aggregate", ["obj"])
+        @window_aggregate.register("sql")
+        def _(ctx, obj, fail):
             obj.data += "START"
-            ctx.o.aggregate(obj, fail)
+            ctx.op.aggregate(obj, fail)
             obj.data += "END"
 
         c = OperationContext()
         c.add_operation(aggregate)
-        c.add_operation(aggregate_rows)
         c.add_operation(window_aggregate)
 
         # Expected order:
@@ -339,42 +373,32 @@ class KernelTestCase(unittest.TestCase):
 
         obj = DummyDataObject(["sql"], "")
 
-        c.o.window_aggregate(obj, fail=True)
+        c.op.window_aggregate(obj, fail=True)
         self.assertEqual("START-ROWS-END", obj.data)
 
         obj.data = ""
-        c.o.window_aggregate(obj, fail=False)
+        c.op.window_aggregate(obj, fail=False)
         self.assertEqual("START-SQL-END", obj.data)
 
     def test_priority(self):
         objsql = DummyDataObject(["sql", "rows"])
         objrows = DummyDataObject(["rows", "sql"])
 
+        meditate = Operation("meditate", ["obj"])
+
+        @meditate.register("sql")
         def fsql(ctx, obj):
-            pass
+            return "sql"
+
+        @meditate.register("rows")
         def frows(ctx, obj):
-            pass
+            return "rows"
 
         c = OperationContext()
-        c.add_operation(Operation(fsql, name="meditate",
-                                    signature=Signature("sql")))
-        c.add_operation(Operation(frows, name="meditate",
-                                    signature=Signature("rows")))
+        c.add_operation(meditate)
 
-        self.assertEqual(fsql, c.lookup_operation("meditate", objsql).function)
-        self.assertEqual(frows, c.lookup_operation("meditate",
-                                                            objrows).function)
-
-        # Reverse order of registration, expect the same result
-        c = OperationContext()
-        c.add_operation(Operation(frows, name="meditate",
-                                signature=Signature("rows")))
-        c.add_operation(Operation(fsql, name="meditate",
-                                signature=Signature("sql")))
-
-        self.assertEqual(fsql, c.lookup_operation("meditate", objsql).function)
-        self.assertEqual(frows, c.lookup_operation("meditate",
-                                                            objrows).function)
+        self.assertEqual("sql", c.op.meditate(objsql))
+        self.assertEqual("rows", c.op.meditate(objrows))
 
 if __name__ == "__main__":
     unittest.main()

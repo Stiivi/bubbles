@@ -12,6 +12,7 @@ from ..errors import *
 from ..operation import operation
 from ..objects import *
 from ..dev import experimental
+from .prototypes import *
 
 # FIXME: add cheaper version for already sorted data
 # FIXME: BasicAuditProbe was removed
@@ -31,9 +32,8 @@ def unary_iterator(func):
 #############################################################################
 # Metadata Operations
 
-@operation("rows")
-def field_filter(ctx, iterator, keep=None, drop=None, rename=None,
-                    filter=None):
+@field_filter.register("rows")
+def _(ctx, iterator, keep=None, drop=None, rename=None, filter=None):
     """Filters fields in `iterator` according to the `field_filter`.
     `iterator` should be a rows iterator and `fields` is list of iterator's
     fields."""
@@ -58,9 +58,9 @@ def field_filter(ctx, iterator, keep=None, drop=None, rename=None,
 # Row Operations
 
 
-@operation("rows")
+@filter_by_value.register("rows")
 @unary_iterator
-def filter_by_value(ctx, iterator, key, value, discard=False):
+def _(ctx, iterator, key, value, discard=False):
     """Select rows where value of `field` belongs to the set of `values`. If
     `discard` is ``True`` then the matching rows are discarded instead
     (operation is inverted)."""
@@ -75,9 +75,9 @@ def filter_by_value(ctx, iterator, key, value, discard=False):
 
     return filter(predicate, iterator)
 
-@operation("rows")
+@filter_by_set.register("rows")
 @unary_iterator
-def filter_by_set(ctx, iterator, field, values, discard=False):
+def _(ctx, iterator, field, values, discard=False):
     """Select rows where value of `field` belongs to the set of `values`. If
     `discard` is ``True`` then the matching rows are discarded instead
     (operation is inverted)."""
@@ -94,9 +94,9 @@ def filter_by_set(ctx, iterator, field, values, discard=False):
 
     return filter(predicate, iterator)
 
-@operation("rows")
+@filter_by_range.register("rows")
 @unary_iterator
-def filter_by_range(ctx, iterator, field, low, high, discard=False):
+def _(ctx, iterator, field, low, high, discard=False):
     """Select rows where value `low` <= `field` <= `high`. If
     `discard` is ``True`` then the matching rows are discarded instead
     (operation is inverted). To check only agains one boundary set the other
@@ -122,9 +122,9 @@ def filter_by_range(ctx, iterator, field, low, high, discard=False):
 
     return filter(predicate, iterator)
 
-@operation("rows")
+@filter_not_empty.register("rows")
 @unary_iterator
-def filter_not_empty(ctx, iterator, field):
+def _(ctx, iterator, field):
     """Select rows where value of `field` is not None"""
 
     fields = iterator.fields
@@ -134,9 +134,9 @@ def filter_not_empty(ctx, iterator, field):
 
     return filter(predicate, iterator)
 
-@operation("rows")
+@filter_empty.register("rows")
 @unary_iterator
-def filter_empty(ctx, iterator, field):
+def _(ctx, iterator, field):
     """Select rows where value of `field` is None or empty string"""
 
     fields = iterator.fields
@@ -146,9 +146,9 @@ def filter_empty(ctx, iterator, field):
 
     return filter(predicate, iterator)
 
-@operation("rows")
+@filter_by_predicate.register("rows")
 @unary_iterator
-def filter_by_predicate(ctx, obj, predicate, fields, discard=False,
+def _(ctx, obj, predicate, fields, discard=False,
                         **kwargs):
     """Returns an interator selecting fields where `predicate` is true.
     `predicate` should be a python callable. `arg_fields` are names of fields
@@ -168,8 +168,8 @@ def filter_by_predicate(ctx, obj, predicate, fields, discard=False,
     return iterator(indexes)
 
 
-@operation("records", name="filter_by_predicate")
-def filter_by_predicate_records(ctx, iterator, predicate, fields, discard=False,
+@filter_by_predicate.register("records")
+def _(ctx, iterator, predicate, fields, discard=False,
                         **kwargs):
     """Returns an interator selecting fields where `predicate` is true.
     `predicate` should be a python callable. `arg_fields` are names of fields
@@ -183,8 +183,8 @@ def filter_by_predicate_records(ctx, iterator, predicate, fields, discard=False,
             yield record
 
 
-@operation("rows")
-def distinct(ctx, obj, key=None, is_sorted=False):
+@distinct.register("rows")
+def _(ctx, obj, key=None, is_sorted=False):
     """Return distinct `keys` from `iterator`. `iterator` does
     not have to be sorted. If iterator is sorted by the keys and
     `is_sorted` is ``True`` then more efficient version is used."""
@@ -223,9 +223,9 @@ def distinct(ctx, obj, key=None, is_sorted=False):
     return IterableDataSource(iterator(row_filter), fields)
 
 
-@operation("rows")
+@distinct_rows.register("rows")
 @unary_iterator
-def distinct_rows(ctx, obj, key=None, is_sorted=False):
+def _(ctx, obj, key=None, is_sorted=False):
     """Return distinct rows based on `key` from `iterator`. `iterator`
     does not have to be sorted. If iterator is sorted by the keys and
     `is_sorted` is ``True`` then more efficient version is used."""
@@ -258,9 +258,9 @@ def distinct_rows(ctx, obj, key=None, is_sorted=False):
                 yield row
 
 
-@operation("rows")
+@first_unique.register("rows")
 @unary_iterator
-def first_unique(ctx, iterator, keys=None, discard=False):
+def _(ctx, iterator, keys=None, discard=False):
     """Return rows that are unique by `keys`. If `discard` is `True` then the
     action is reversed and duplicate rows are returned."""
 
@@ -286,9 +286,9 @@ def first_unique(ctx, iterator, keys=None, discard=False):
                 yield row
 
 
-@operation("rows")
+@sample.register("rows")
 @unary_iterator
-def sample(ctx, iterator, value, discard=False, mode="first"):
+def _(ctx, iterator, value, discard=False, mode="first"):
     """Returns sample from the iterator. If `mode` is ``first`` (default),
     then `value` is number of first records to be returned. If `mode` is
     ``nth`` then one in `value` records is returned."""
@@ -316,13 +316,12 @@ def discard_nth_base(ctx, iterator, step):
         if i % step != 0:
             yield value
 
-discard_nth = operation("rows")(discard_nth_base)
-discard_nth_records = operation("records", name="discard_nth")(discard_nth_base)
+discard_nth.register("rows")(discard_nth_base)
+discard_nth.register("records")(discard_nth_base)
 
-
-@operation("rows")
+@sort.register("rows")
 @unary_iterator
-def sort(ctx, obj, orderby):
+def _(ctx, obj, orderby):
     iterator = obj.rows()
 
     orderby = prepare_order_list(orderby)
@@ -364,9 +363,9 @@ aggregation_functions = {
             "average": AggregationFunction(agg_average, (0,0), agg_average_finalize)
         }
 
-@operation("rows")
-def aggregate(ctx, obj, key, measures=None, include_count=True,
-              count_field="record_count"):
+@aggregate.register("rows")
+def _(ctx, obj, key, measures=None, include_count=True,
+      count_field="record_count"):
     """Aggregates measure fields in `iterator` by `keys`. `fields` is a field
     list of the iterator, `keys` is a list of fields that will be used as
     keys. `aggregations` is a list of measures to be aggregated.
@@ -484,8 +483,8 @@ def aggregate(ctx, obj, key, measures=None, include_count=True,
 # Field Operations
 
 
-@operation("rows")
-def append_constant_fields(ctx, obj, fields, value):
+@append_constant_fields.register("rows")
+def _(ctx, obj, fields, value):
     def iterator(constants):
         for row in obj.rows():
             yield list(row) + constants
@@ -500,8 +499,8 @@ def append_constant_fields(ctx, obj, fields, value):
     return IterableDataSource(iterator(constants), output_fields)
 
 
-@operation("rows")
-def dates_to_dimension(ctx, obj, fields=None, unknown_date=0):
+@dates_to_dimension.register("rows")
+def _(ctx, obj, fields=None, unknown_date=0):
     def iterator(indexes):
         for row in obj.rows():
             row = list(row)
@@ -531,9 +530,8 @@ def dates_to_dimension(ctx, obj, fields=None, unknown_date=0):
     return IterableDataSource(iterator(indexes), fields)
 
 
-@operation("rows")
-@experimental
-def string_to_date(ctx, obj, fields, fmt="%Y-%m-%dT%H:%M:%S.Z"):
+@string_to_date.register("rows")
+def _(ctx, obj, fields, fmt="%Y-%m-%dT%H:%M:%S.Z"):
     def iterator(indexes):
         for row in obj.rows():
             row = list(row)
@@ -563,8 +561,8 @@ def string_to_date(ctx, obj, fields, fmt="%Y-%m-%dT%H:%M:%S.Z"):
 
     return IterableDataSource(iterator(indexes), fields)
 
-@operation("rows")
-def split_date(ctx, obj, fields, parts=["year", "month", "day"]):
+@split_date.register("rows")
+def _(ctx, obj, fields, parts=["year", "month", "day"]):
     """Extract `parts` from date objects"""
 
     def iterator(indexes):
@@ -597,9 +595,9 @@ def split_date(ctx, obj, fields, parts=["year", "month", "day"]):
 
     return IterableDataSource(iterator(indexes), fields)
 
-@operation("rows")
+@text_substitute.register("rows")
 @unary_iterator
-def text_substitute(ctx, iterator, field, substitutions):
+def _(ctx, iterator, field, substitutions):
     """Substitute field using text substitutions"""
     # Compile patterns
     fields = iterator.fields
@@ -615,10 +613,10 @@ def text_substitute(ctx, iterator, field, substitutions):
 
         yield row
 
-@operation("rows")
+@empty_to_missing.register("rows")
 @unary_iterator
 @experimental
-def empty_to_missing(ctx, iterator, fields=None, strict=False):
+def _(ctx, iterator, fields=None, strict=False):
     """Converts empty strings into `None` values."""
     if fields:
         if strict:
@@ -640,9 +638,9 @@ def empty_to_missing(ctx, iterator, fields=None, strict=False):
             row[index] = row[index] if row[index] else None
         yield row
 
-@operation("rows")
+@string_strip.register("rows")
 @unary_iterator
-def string_strip(ctx, iterator, strip_fields=None, chars=None):
+def _(ctx, iterator, strip_fields=None, chars=None):
     """Strip characters from `strip_fields` in the iterator. If no
     `strip_fields` is provided, then it strips all `string` or `text` storage
     type objects."""
@@ -669,8 +667,8 @@ def string_strip(ctx, iterator, strip_fields=None, chars=None):
 # Compositions
 
 
-@operation("rows[]")
-def append(ctx, objects):
+@append.register("rows[]")
+def _(ctx, objects):
     """Appends iterators"""
     # TODO: check for field equality
     iterators = [iter(obj) for obj in objects]
@@ -680,8 +678,8 @@ def append(ctx, objects):
 
 
 
-@operation("rows", "rows", name="join_details")
-def join_details(self, master, detail, master_key, detail_key):
+@join_details.register("rows", "rows")
+def _(self, master, detail, master_key, detail_key):
     """"Simple master-detail join"""
 
     def _join_detail_iterator(master, detail, master_key, detail_key):
@@ -735,8 +733,8 @@ def join_details(self, master, detail, master_key, detail_key):
 # Output
 
 
-@operation("records")
-def pretty_print(ctx, obj, target=None):
+@pretty_print.register("records")
+def _(ctx, obj, target=None):
     if not target:
         target = sys.stdout
 
@@ -776,9 +774,9 @@ def pretty_print(ctx, obj, target=None):
     target.flush()
 
 
-@operation("rows")
+@basic_audit.register("rows")
 @unary_iterator
-def basic_audit(ctx, iterable, distinct_threshold):
+def _(ctx, iterable, distinct_threshold):
     """Performs basic audit of fields in `iterable`. Returns a list of
     dictionaries with keys:
 
@@ -839,9 +837,9 @@ def basic_audit(ctx, iterable, distinct_threshold):
 # Conversions
 
 
-@operation("rows")
+@as_records.register("rows")
 @unary_iterator
-def as_records(ctx, obj):
+def _(ctx, obj):
     """Returns iterator of dictionaries where keys are defined in
     fields."""
     names = [str(field) for field in obj.fields]
@@ -849,8 +847,8 @@ def as_records(ctx, obj):
         yield dict(zip(names, row))
 
 
-@operation("rows")
-def fetch_all(ctx, obj):
+@fetch_all.register("rows")
+def _(ctx, obj):
     """Loads all data from the iterable object and stores them in a python
     list. Useful for smaller datasets, not recommended for big data."""
 
@@ -859,8 +857,8 @@ def fetch_all(ctx, obj):
     return RowListDataObject(data, fields=obj.fields)
 
 
-@operation("rows")
-def as_dict(ctx, obj, key=None, value=None):
+@as_dict.register("rows")
+def _(ctx, obj, key=None, value=None):
     """Returns dictionary constructed from the iterator.  `key` is name of a
     field or list of fields that will be used as a simple key or composite
     key. `value` is a field or list of fields that will be used as values.
