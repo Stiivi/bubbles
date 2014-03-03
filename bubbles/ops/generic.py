@@ -1,28 +1,29 @@
 from ..operation import operation
 from ..dev import experimental
+from ..prototypes import *
 
 #############################################################################
 # Convenience
 
-@operation("*")
 @experimental
+@rename_fields.register("*")
 def rename_fields(ctx, obj, rename):
-    return ctx.o.field_filter(obj, rename=rename)
+    return ctx.op.field_filter(obj, rename=rename)
 
-@operation("*")
 @experimental
+@drop_fields.register("*")
 def drop_fields(ctx, obj, drop):
-    return ctx.o.field_filter(obj, drop=drop)
+    return ctx.op.field_filter(obj, drop=drop)
 
-@operation("*")
 @experimental
+@keep_fields.register("*")
 def keep_fields(ctx, obj, keep):
-    return ctx.o.field_filter(obj, keep=keep)
+    return ctx.op.field_filter(obj, keep=keep)
 
 #############################################################################
 # Debug
 
-@operation("*")
+@debug_fields.register("*")
 def debug_fields(ctx, obj, label=None):
     if label:
         label = " (%s)" % label

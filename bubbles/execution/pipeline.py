@@ -285,9 +285,9 @@ class _PipelineOperation(object):
         # – `operands` might be either a node - received throught
         # pipeline.node or it might be a pipeline forked from the receiver
 
-        prototype = self.pipeline.context.operation_prototype(self.opname)
+        operation = self.pipeline.context.operation(self.opname)
 
-        if prototype.operand_count == 1:
+        if operation.opcount == 1:
             # Unary operation
             node = Node(self.opname, *args, **kwargs)
             self.pipeline._append_node(node)
@@ -297,12 +297,12 @@ class _PipelineOperation(object):
             # - the one that is just being created by this function as default
             # operand within the processing pipeline.
 
-            operands = args[0:prototype.operand_count-1]
-            args = args[prototype.operand_count-1:]
+            operands = args[0:operation.opcount-1]
+            args = args[operation.opcount-1:]
 
             # Get name of first (pipeline default) outlet and rest of the
             # operand outlets
-            firstoutlet, *restoutlets = prototype.operands
+            firstoutlet, *restoutlets = operation.operands
 
             # Pipeline node - default
             node = Node(self.opname, *args, **kwargs)

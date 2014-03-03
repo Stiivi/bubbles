@@ -12,7 +12,7 @@ from ..errors import *
 from ..operation import operation
 from ..objects import *
 from ..dev import experimental
-from .prototypes import *
+from ..prototypes import *
 
 # FIXME: add cheaper version for already sorted data
 # FIXME: BasicAuditProbe was removed

@@ -288,7 +288,6 @@ def operation(*args):
         # No arguments, this is the decorator
         # Set default values for the arguments
         # Extract just parameter names (sig.parameters is a mapping)
-        func = args[0]
         sig = inspect.signature(func)
         names = tuple(sig.parameters.keys())
         # Set operand names from function parameter names, skip the context
@@ -301,6 +300,7 @@ def operation(*args):
         sig = ["*"] * len(operands)
         op.register(func, *sig)
         return op
+
 
     if len(args) == 1 and callable(args[0]):
         return decorator(args[0])

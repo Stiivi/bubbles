@@ -10,6 +10,22 @@ def field_filter(ctx, iterator, keep=None, drop=None, rename=None,
                  filter=None):
     raise NotImplementedError
 
+@operation
+def rename_fields(ctx, obj, rename):
+    raise NotImplementedError
+
+@operation
+def drop_fields(ctx, obj, drop):
+    raise NotImplementedError
+
+@operation
+def keep_fields(ctx, obj, keep):
+    raise NotImplementedError
+
+@operation
+def debug_fields(ctx, obj, label=None):
+    raise NotImplementedError
+
 #############################################################################
 # Row Filters
 
@@ -55,7 +71,7 @@ def sample(ctx, iterator, value, discard=False, mode="first"):
     raise NotImplementedError
 
 @operation
-def discard_nth_base(ctx, iterator, step):
+def discard_nth(ctx, iterator, step):
     raise NotImplementedError
 
 
@@ -104,7 +120,7 @@ def empty_to_missing(ctx, iterator, fields=None, strict=False):
     raise NotImplementedError
 
 @operation
-def stirng_strip(ctx, iterator, strip_fields=None, chars=None):
+def string_strip(ctx, iterator, strip_fields=None, chars=None):
     raise NotImplementedError
 
 
@@ -115,7 +131,7 @@ def stirng_strip(ctx, iterator, strip_fields=None, chars=None):
 def append(ctx, objects):
     raise NotImplementedError
 
-@operation
+@operation(2)
 def join_details(self, master, detail, master_key, detail_key):
     raise NotImplementedError
 
@@ -123,15 +139,15 @@ def join_details(self, master, detail, master_key, detail_key):
 #############################################################################
 # Comparison and Inspection
 
-@operation
+@operation(2)
 def added_keys(self, master, detail, src_key, target_key):
     raise NotImplementedError
 
-@operation
+@operation(2)
 def added_rows(self, master, detail, src_key, target_key):
     raise NotImplementedError
 
-@operation
+@operation(2)
 def changed_rows(self, master, detail, dim_key, source_key, fields,
                     version_field):
     raise NotImplementedError
@@ -161,11 +177,11 @@ def basic_audit(ctx, iterable, distinct_threshold):
 #############################################################################
 # Loading
 
-@operation
+@operation(2)
 def insert(ctx, source, target):
     raise NotImplementedError
 
-@operation
+@operation(2)
 def load_versioned_dimension(ctx, dim, source, dim_key, fields,
                              version_fields=None, source_key=None):
     raise NotImplementedError

@@ -157,6 +157,8 @@ class OperationContext(object):
         resolution_order = op.resolution_order(reps)
         first_signature = resolution_order[0]
 
+        self.logger.debug("op %s(%s)" % (op_name, reps))
+
         if self.observer:
             self.observer.will_call_operation(self, op, first_signature)
 
