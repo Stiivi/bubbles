@@ -28,6 +28,7 @@ _default_modules = {
     "object": {
         "csv_source":"bubbles.backends.text.objects",
         "csv_target":"bubbles.backends.text.objects",
+        "xls":"bubbles.backends.xls"
     },
 }
 
