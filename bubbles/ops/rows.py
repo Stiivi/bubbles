@@ -480,6 +480,36 @@ def _(ctx, obj, key, measures=None, include_count=True,
 
 
 #############################################################################
+# Transpose
+
+@transpose_by.register("rows")
+def _(ctx, obj, key, column_field, value_field):
+
+    def iterator():
+        nonlocal keep_filter, transpose_filter, transpose_names
+
+        for row in obj:
+            keep = keep_filter(row)
+            transposed = transpose_filter(row)
+
+            for name, value in zip(transpose_names, transposed):
+                yield list(keep) + [name, value]
+
+    key = prepare_key(key)
+    out_fields = FieldList()
+    out_fields += obj.fields.fields(key)
+
+    # TODO: set type of the field as type of the first transposed field
+    out_fields.append(Field(column_field, "string"))
+    out_fields.append(Field(value_field))
+
+    keep_filter = FieldFilter(keep=key).row_filter(obj.fields)
+    transpose_filter = FieldFilter(drop=key).row_filter(obj.fields)
+    transpose_names = transpose_filter(obj.fields.names())
+
+    return IterableDataSource(iterator(), out_fields)
+
+#############################################################################
 # Field Operations
 
 

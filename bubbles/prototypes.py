@@ -123,6 +123,10 @@ def empty_to_missing(ctx, iterator, fields=None, strict=False):
 def string_strip(ctx, iterator, strip_fields=None, chars=None):
     raise NotImplementedError
 
+@operation
+def transpose_by(ctx, iterator, key, new_field):
+    raise NotImplementedError
+
 
 #############################################################################
 # Compositions
