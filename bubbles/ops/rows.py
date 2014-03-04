@@ -824,6 +824,9 @@ class BasicAuditProbe(object):
         self.null_record_ratio = 0
         self.empty_string_count = 0
 
+        self.min_len = 0
+        self.max_len = 0
+
         self.distinct_threshold = distinct_threshold
 
         self.unique_storage_type = None
@@ -842,6 +845,13 @@ class BasicAuditProbe(object):
 
         if value == '':
             self.empty_string_count += 1
+
+        try:
+            l = len(value)
+            self.min_len = min(self.min_len, l)
+            self.max_len = max(self.max_len, l)
+        except TypeError:
+            pass
 
         self._probe_distinct(value)
 
@@ -885,7 +895,7 @@ class BasicAuditProbe(object):
     def to_dict(self):
         """Return dictionary representation of receiver."""
         d = {
-            "key": self.field,
+            "field": self.field,
             "value_count": self.value_count,
             "record_count": self.record_count,
             "value_ratio": self.value_ratio,
@@ -894,10 +904,13 @@ class BasicAuditProbe(object):
             "null_value_ratio": self.null_value_ratio,
             "null_record_ratio": self.null_record_ratio,
             "empty_string_count": self.empty_string_count,
-            "unique_storage_type": self.unique_storage_type
+            "unique_storage_type": self.unique_storage_type,
+            "min_len": self.min_len,
+            "max_len": self.max_len
         }
 
-        d["distinct_overflow"] = self.distinct_overflow,
+        d["distinct_overflow"] = self.distinct_overflow
+        d["distinct_count"] = len(self.distinct_values)
         if self.distinct_overflow:
             d["distinct_values"] = []
         else:
@@ -907,31 +920,19 @@ class BasicAuditProbe(object):
 
 @basic_audit.register("rows")
 def _(ctx, obj, distinct_threshold=100):
-    """Performs basic audit of fields in `iterable`. Returns a list of
-    dictionaries with keys:
-
-    * `field_name` - name of a field
-    * `record_count` - number of records
-    * `null_count` - number of records with null value for the field
-    * `null_record_ratio` - ratio of null count to number of records
-    * `empty_string_count` - number of strings that are empty (for fields of type string)
-    * `distinct_values` - number of distinct values (if less than distinct threshold). Set
-      to None if there are more distinct values than `distinct_threshold`.
-    * `min`
-    * `max`
-    """
 
     fields = obj.fields
     out_fields= FieldList(
-        Field("key", "string"),
-        Field("value_count", "integer"),
+        Field("field", "string"),
         Field("record_count", "integer"),
         Field("value_ratio", "integer"),
         Field("null_count", "integer"),
         Field("null_value_ratio", "number"),
         Field("null_record_ratio", "number"),
         Field("empty_string_count", "integer"),
-        Field("unique_storage_type", "string"),
+        Field("min_len", "integer"),
+        Field("max_len", "integer"),
+        Field("distinct_count", "integer"),
         Field("distinct_overflow", "boolean")
     )
 
