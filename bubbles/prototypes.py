@@ -121,6 +121,15 @@ def empty_to_missing(ctx, iterator, fields=None, strict=False):
 
 @operation
 def string_strip(ctx, iterator, strip_fields=None, chars=None):
+    """Strip characters from `strip_fields` in the iterator. If no
+    `strip_fields` is provided, then it strips all `string` or `text` storage
+    type objects."""
+
+    raise NotImplementedError
+
+@operation
+def string_split_fixed(ctx, iterator, split_fields=None,
+                       new_fields=None, widths=None):
     raise NotImplementedError
 
 @operation
