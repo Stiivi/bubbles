@@ -179,5 +179,8 @@ class DataPackageCollectionStore(DataStore):
         return self.resources.keys()
 
     def get_object(self, name, **args):
-        return self.resources[name].dataobject()
+        try:
+            return self.resources[name].dataobject()
+        except KeyError:
+            raise NoSuchObjectError(name)
 

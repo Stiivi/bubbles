@@ -480,7 +480,7 @@ class CSVTarget(DataObject):
 
         mode = "w" if self.truncate else "a"
 
-        self.handle = open(resource, mode=mode, encodin=encoding)
+        self.handle = open(resource, mode=mode, encoding=encoding)
 
         self.writer = csv.writer(self.handle, dialect=self.dialect, **self.kwds)
 
