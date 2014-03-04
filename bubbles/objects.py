@@ -44,7 +44,7 @@ def iterator_object(iterator, fields):
 
 class DataObject(Extensible):
     __extension_type__ = "object"
-    __extension_suffix__ = ""
+    __extension_suffix__ = "Object"
 
     def representations(self):
         """Returns list of representation names of this data object. Default
