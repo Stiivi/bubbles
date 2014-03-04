@@ -46,6 +46,7 @@ class Pipeline(object):
         # List of owned and therefore opened stores
         self._owned_stores = []
 
+        stores = stores or {}
         for name, store in stores.items():
             if isinstance(store, dict):
                 store = dict(store)
