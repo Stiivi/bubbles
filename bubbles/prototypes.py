@@ -182,8 +182,15 @@ def nonempty_count(ctx, obj, fields=None):
 def distinct_count(ctx, obj, fields=None):
     raise NotImplementedError
 
+#############################################################################
+# Audit
+
 @operation
 def basic_audit(ctx, iterable, distinct_threshold):
+    raise NotImplementedError
+
+@operation
+def infer_types(ctx, iterable, date_format=None):
     raise NotImplementedError
 
 

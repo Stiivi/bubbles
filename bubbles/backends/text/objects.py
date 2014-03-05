@@ -93,6 +93,7 @@ class CSVStore(DataStore):
         target = CSVTarget(path, fields=fields, truncate=True)
         return target
 
+
 class CSVSource(DataObject):
     """Comma separated values text file as a data source."""
 
@@ -105,7 +106,7 @@ class CSVSource(DataObject):
             {
                 "name":"fields",
                 "description": "fields in the file. Should be set if read_header "
-                               "or infer_fields is false"
+                               "is false"
             },
             {
                 "name":"fields",
@@ -119,12 +120,6 @@ class CSVSource(DataObject):
             {
                 "name":"read_header",
                 "description":"flag whether file header is read or not"
-            },
-            {
-                "name":"infer_fields",
-                "description":"Try to determine number and data type of fields "
-                              "This option requires the resource to be seek-able. "
-                              "Very likely does not work on remote streams."
             },
             {
                 "name":"sample_size",
@@ -147,29 +142,24 @@ class CSVSource(DataObject):
 
     def __init__(self, resource, read_header=True, dialect=None,
             delimiter=None, encoding=None, sample_size=1024, skip_rows=None,
-            empty_as_null=True, fields=None, infer_fields=False,
-            type_converters=None, **options):
+            empty_as_null=True, fields=None, type_converters=None, **options):
         """Creates a CSV data source stream.
 
-        :Attributes:
-            * `resource`: file name, URL or a file handle with CVS data
-            * `read_header`: flag determining whether first line contains header
-              or not. ``True`` by default.
-            * `encoding`: source character encoding, by default no conversion is
-              performed.
-            * `fields`: optional `FieldList` object. If not specified then
-              `read_header` and/or `infer_fields` should be used.
-            * `infer_fields`: try to determine number and data type of fields.
-              This option requires the resource to be seek-able, like files.
-              Does not work on remote streams.
-            * `sample_size`: number of rows to read for type detection if
-              `detect_types` is ``True``. 0 means all rows.
-              and headers in file. By default it is set to 200 bytes to
-              prevent loading huge CSV files at once.
-            * `skip_rows`: number of rows to be skipped. Default: ``None``
-            * `empty_as_null`: treat empty strings as ``Null`` values
-            * `type_converters`: dictionary of converters (functions). It has
-              to cover all knowd types.
+        * `resource`: file name, URL or a file handle with CVS data
+        * `read_header`: flag determining whether first line contains header
+          or not. ``True`` by default.
+        * `encoding`: source character encoding, by default no conversion is
+          performed.
+        * `fields`: optional `FieldList` object. If not specified then
+          `read_header` should be used.
+        * `sample_size`: number of rows to read for type detection if
+          `detect_types` is ``True``. 0 means all rows.
+          and headers in file. By default it is set to 200 bytes to
+          prevent loading huge CSV files at once.
+        * `skip_rows`: number of rows to be skipped. Default: ``None``
+        * `empty_as_null`: treat empty strings as ``Null`` values
+        * `type_converters`: dictionary of converters (functions). It has
+          to cover all knowd types.
 
         Note: avoid auto-detection when you are reading from remote URL
         stream.
@@ -184,31 +174,11 @@ class CSVSource(DataObject):
           `string` (this is the default)
         """
 
-        """
-        RH = request header, FI = fields, IT = infer types
-
-        RH FI IT
-         0  0  0 - ERROR
-         0  0  1 - detect fields
-         1  0  0 - read header, use strings (default)
-         1  0  1 - read header, detect types
-         0  1  0 - use fields, header as data
-         0  1  1 - ERROR
-         1  1  0 - ignore header, use fields
-         1  1  1 - ERROR
-        """
-        # FIXME: loosen requirement for type_converters to contain all known
-        # types
-
         self.file = None
 
-        if not any((fields, read_header, infer_fields)):
-            raise ArgumentError("At least one of fields, read_header or "
-                                "infer_fields should be specified")
-
-        if fields and infer_fields:
-            raise ArgumentError("Fields provided and field inference "
-                                "requested. They are exclusive, use only one")
+        if not any((fields, read_header)):
+            raise ArgumentError("At least one of fields or read_header"
+                                " should be specified")
 
         self.read_header = read_header
         self.encoding = encoding
@@ -219,7 +189,6 @@ class CSVSource(DataObject):
 
         self.skip_rows = skip_rows or 0
         self.fields = fields
-        self.do_infer_fields = infer_fields
         self.sample_size = sample_size
         self.type_converters = type_converters or _default_type_converters
 
@@ -262,8 +231,6 @@ class CSVSource(DataObject):
         # self.reader = csv.reader(handle, **self.reader_args)
         self.reader = csv.reader(self.handle, **options)
 
-        if self.do_infer_fields:
-            self.fields = self.infer_fields()
 
         if self.skip_rows:
             for i in range(0, self.skip_rows):
@@ -286,85 +253,6 @@ class CSVSource(DataObject):
 
         self.set_fields(self.fields)
 
-    def infer_fields(self, sample_size=1000):
-        """Detects fields from the source. If `read_header` is ``True`` then
-        field names are read from the first row of the file. If it is
-        ``False`` then field names are `field0`, `field1` ... `fieldN`.
-
-        After detecting field names, field types are detected from sample of
-        `sample_size` rows.
-
-        Returns a `FieldList` instance.
-
-        If more than one field type is detected, then the most compatible type
-        is returned. However, do not rely on this behavior.
-
-        Note that the source has to be seek-able (like a local file, not as
-        remote stream) for detection to work. Stream is reset to its origin
-        after calling this method.
-
-        .. note::
-
-            This method is provided for convenience. For production
-            environment it is recommended to detect types during development
-            and then to use an explicit field list during processing.
-        """
-
-        self._sample = []
-        for i in range(0, self.skip_rows):
-            self._sample.append(next(self.reader))
-
-        if self.read_header:
-            row = next(self.reader)
-            self._sample.append(row)
-            field_names = row
-        else:
-            field_names = None
-
-        rownum = 0
-        probes = defaultdict(set)
-
-        while rownum <= sample_size:
-            try:
-                row = next(self.reader)
-                self._sample.append(row)
-            except StopIteration:
-                break
-
-            rownum += 1
-            for i, value in enumerate(row):
-                probes[i].add(guess_type(value))
-
-        keys = list(probes.keys())
-        keys.sort()
-
-        types = [probes[key] for key in keys]
-
-        if field_names and len(types) != len(field_names):
-            raise Exception("Number of detected fields differs from number"
-                            " of fields specified in the header row")
-        if not field_names:
-            field_names = ["field%d" % i for i in range(len(types))]
-
-        fields = FieldList()
-
-        for name, types in zip(field_names, types):
-            if "string" in types:
-                t = "string"
-            elif "integer"in types:
-                t = "integer"
-            elif "float" in types:
-                t = "float"
-            elif "date" in types:
-                t = "date"
-            else:
-                t = "string"
-            field = Field(name, t)
-            fields.append(field)
-
-        # Prepend already consumed sample before the reader
-        self.reader = itertools.chain(iter(self._sample), self.reader)
-        return fields
 
     def set_fields(self, fields):
         self.converters = [self.type_converters.get(f.storage_type) for f in fields]
@@ -390,11 +278,6 @@ class CSVSource(DataObject):
                     result.append(None)
                     continue
 
-                try:
-                    missing_values[i]
-                except IndexError:
-                    import pdb;pdb.set_trace()
-
                 if missing_values[i] and value == missing_values[i]:
                     result.append(None)
                     continue
@@ -407,9 +290,8 @@ class CSVSource(DataObject):
                     result.append(value)
             yield result
 
-    def csv_data(self):
-        s = CSVData(self.handle, self.dialect, self.encoding, self.fields)
-        return s
+    def csv_stream(self):
+        return self.handle
 
     def records(self):
         fields = self.fields.names()
@@ -418,7 +300,6 @@ class CSVSource(DataObject):
 
     def is_consumable(self):
         return True
-
 
     def retained(self):
         """Returns retained copy of the consumable"""

@@ -16,6 +16,7 @@ class TextBackendTestCase(unittest.TestCase):
         self.assertEqual(["1", "jablko", "malvice"], rows[0])
         obj.release()
 
+    @unittest.skip("Moved to an oepration")
     def test_infer_types(self):
         obj = CSVSource(data_path("fruits-sk.csv"), infer_fields=True)
         self.assertEqual("integer", obj.fields[0].storage_type)
