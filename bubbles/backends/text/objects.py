@@ -93,7 +93,6 @@ class CSVStore(DataStore):
         target = CSVTarget(path, fields=fields, truncate=True)
         return target
 
-
 class CSVSource(DataObject):
     """Comma separated values text file as a data source."""
 
@@ -122,10 +121,6 @@ class CSVSource(DataObject):
                 "description":"flag whether file header is read or not"
             },
             {
-                "name":"sample_size",
-                "description":"Number of rows to read for type detection."
-            },
-            {
                 "name":"skip_rows",
                 "description":"number of rows to be skipped"
             },
@@ -141,7 +136,7 @@ class CSVSource(DataObject):
     }
 
     def __init__(self, resource, read_header=True, dialect=None,
-            delimiter=None, encoding=None, sample_size=1024, skip_rows=None,
+            delimiter=None, encoding=None, skip_rows=None,
             empty_as_null=True, fields=None, type_converters=None, **options):
         """Creates a CSV data source stream.
 
@@ -152,10 +147,6 @@ class CSVSource(DataObject):
           performed.
         * `fields`: optional `FieldList` object. If not specified then
           `read_header` should be used.
-        * `sample_size`: number of rows to read for type detection if
-          `detect_types` is ``True``. 0 means all rows.
-          and headers in file. By default it is set to 200 bytes to
-          prevent loading huge CSV files at once.
         * `skip_rows`: number of rows to be skipped. Default: ``None``
         * `empty_as_null`: treat empty strings as ``Null`` values
         * `type_converters`: dictionary of converters (functions). It has
