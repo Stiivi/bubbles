@@ -6,7 +6,8 @@ import datetime
 __all__ = (
         "expand_record",
         "collapse_record",
-        "guess_type"
+        "guess_type",
+        "to_bool"
         )
 
 
@@ -76,5 +77,14 @@ def collapse_record(record, separator = '.', root = None):
         else:
             result[collapsed_key] = value
     return
+
+def to_bool(value):
+    """Return boolean value. Convert string to True when "true", "yes" or "on"
+    """
+    if isinstance(value, str):
+        value = value.lower()
+        return value in ["1", "true", "yes", "on"] and value != "0"
+    else:
+        return bool(value)
 
 

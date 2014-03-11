@@ -13,6 +13,12 @@ from ..operation import operation
 from ..objects import *
 from ..dev import experimental
 from ..prototypes import *
+from ..datautil import to_bool
+
+from datetime import datetime
+from time import strptime
+from base64 import b64decode
+import json
 
 # FIXME: add cheaper version for already sorted data
 # FIXME: BasicAuditProbe was removed
@@ -31,6 +37,46 @@ def unary_iterator(func):
 
 #############################################################################
 # Metadata Operations
+
+_default_type_converters = {
+    "integer": int,
+    "number": float,
+    "boolean": to_bool,
+    "date": lambda val: datetime.strptime(val, '%Y-%m-%d').date(),
+    "time": lambda val: strptime(val, '%H:%M'),
+    "datetime": lambda val: datetime.strptime(val, '%Y-%m-%dT%H:%M:%S%Z'),
+    "binary": b64decode,
+    "object": json.loads,
+    "geojson": json.loads,
+    "array": ValueError
+}
+
+@retype.register("rows")
+def _(ctx, obj, typemap):
+    def converter(converters, iterator):
+        for row in iterator:
+            result = []
+            for conv, value in zip(converters, row):
+                if conv:
+                    result.append(conv(value))
+                else:
+                    result.append(value)
+            yield result
+
+    fields = FieldList()
+    converters = []
+    for field in obj.fields:
+        new_type = typemap.get(field.name)
+        if new_type and new_type != field.storage_type:
+            conv = _default_type_converters[new_type]
+        else:
+            conv = None
+        converters.append(conv)
+
+        field = field.clone(storage_type=new_type or field.storage_type)
+        fields.append(field)
+
+    return IterableDataSource(converter(converters, obj), fields)
 
 @field_filter.register("rows")
 def _(ctx, iterator, keep=None, drop=None, rename=None, filter=None):

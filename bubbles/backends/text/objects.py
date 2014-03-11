@@ -11,7 +11,6 @@ from ...metadata import *
 from ...errors import *
 from ...resource import Resource
 from ...stores import DataStore
-from ...datautil import guess_type
 import json
 from datetime import datetime
 from time import strptime
@@ -24,27 +23,6 @@ __all__ = (
         "CSVTarget",
         )
 
-def to_bool(value):
-    """Return boolean value. Convert string to True when "true", "yes" or "on"
-    """
-    if isinstance(value, str):
-        value = value.lower()
-        return value in ["1", "true", "yes", "on"] and value != "0"
-    else:
-        return bool(value)
-
-_default_type_converters = {
-    "integer": int,
-    "number": float,
-    "boolean": to_bool,
-    "date": lambda val: datetime.strptime(val, '%Y-%m-%d').date(),
-    "time": lambda val: strptime(val, '%H:%M'),
-    "datetime": lambda val: datetime.strptime(val, '%Y-%m-%dT%H:%M:%S%Z'),
-    "binary": b64decode,
-    "object": json.loads,
-    "geojson": json.loads,
-    "array": ValueError
-}
 
 CSVData = namedtuple("CSVData", ["handle", "dialect", "encoding", "fields"])
 
@@ -159,8 +137,6 @@ class CSVSource(DataObject):
 
         * if `fields` are specified, then they are used, header is ignored
           depending on `read_header` flag
-        * if `detect_types` is requested, then types are infered from
-          `sample_size` number of rows
         * if `detect_types` is not requested, then each field is of type
           `string` (this is the default)
         """
@@ -180,29 +156,8 @@ class CSVSource(DataObject):
 
         self.skip_rows = skip_rows or 0
         self.fields = fields
-        self.sample_size = sample_size
-        self.type_converters = type_converters or _default_type_converters
-
-        # Fetched sample for infering fields
-        self._sample = []
-
-        """Initialize CSV source stream:
-
-        #. perform autodetection if required:
-            #. detect encoding from a sample data (if requested)
-            #. detect whether CSV has headers from a sample data (if
-            requested)
-        #.  create CSV reader object
-        #.  read CSV headers if requested and initialize stream fields
-
-        If fields are explicitly set prior to initialization, and header
-        reading is requested, then the header row is just skipped and fields
-        that were set before are used. Do not set fields if you want to read
-        the header.
-
-        All fields are set to `storage_type` = ``string`` and
-        `analytical_type` = ``unknown``.
-        """
+        # TODO: use default type converters
+        self.type_converters = type_converters or {}
 
         self.resource = Resource(resource, encoding=self.encoding)
         self.handle = self.resource.open()

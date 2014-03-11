@@ -2,6 +2,10 @@ from .operation import operation
 
 # Operation prototypes – empty operations
 
+@operation
+def retype(ctx, iterator, typemap):
+    raise NotImplementedError
+
 #############################################################################
 # Metadata Operations
 
