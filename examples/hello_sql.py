@@ -12,13 +12,14 @@ stores = {
 
 
 p = bubbles.Pipeline(stores=stores)
-p.source_object("csv_source", resource=URL, infer_fields=True)
+p.source_object("csv_source", resource=URL, encoding="utf8")
+p.retype({"Amount (US$, Millions)": "integer"})
 
 # We create a table
 # Uncomment this line and see the difference in debug messages
-# p.create("target", "data")
+p.create("target", "data")
 
-p.distinct("Category")
+p.aggregate("Category", "Amount (US$, Millions)")
 p.pretty_print()
 p.run()
 
