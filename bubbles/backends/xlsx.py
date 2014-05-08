@@ -122,3 +122,11 @@ class XLSXObject(DataObject):
         rows = dropwhile(lambda x: x[0] < self.first_row, rows)
         for _, row in rows:
             yield tuple([c.value for c in row[:field_count]])
+
+    def records(self):
+        fields = self.fields.names()
+        for row in self.rows():
+            yield dict(zip(fields, row))
+
+    def is_consumable(self):
+        return False
