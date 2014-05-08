@@ -5,23 +5,26 @@ from bubbles.metadata import FieldList, Field
 from bubbles.objects import DataObject
 from bubbles.stores import DataStore
 
-from openpyxl import load_workbook, Workbook
-from openpyxl.cell import Cell
+try:
+    import openpyxl
+except ImportError:
+    from ..common import MissingPackage
+    openpyxl = MissingPackage("openpyxl", "Data objects from MS Excel spreadsheets")
 
 
-CELL_TYPES = {Cell.TYPE_STRING: 'string',
-              Cell.TYPE_FORMULA: 'unknown',
-              Cell.TYPE_NUMERIC: 'float',
-              Cell.TYPE_BOOL: 'boolean',
-              Cell.TYPE_NULL: 'unknown',
-              Cell.TYPE_INLINE: 'string',
-              Cell.TYPE_ERROR: 'unknown',
-              Cell.TYPE_FORMULA_CACHE_STRING: 'string'}
+CELL_TYPES = {openpyxl.cell.Cell.TYPE_STRING: 'string',
+              openpyxl.cell.Cell.TYPE_FORMULA: 'unknown',
+              openpyxl.cell.Cell.TYPE_NUMERIC: 'float',
+              openpyxl.cell.Cell.TYPE_BOOL: 'boolean',
+              openpyxl.cell.Cell.TYPE_NULL: 'unknown',
+              openpyxl.cell.Cell.TYPE_INLINE: 'string',
+              openpyxl.cell.Cell.TYPE_ERROR: 'unknown',
+              openpyxl.cell.Cell.TYPE_FORMULA_CACHE_STRING: 'string'}
 
 
 def _load_workbook(resource):
-    return load_workbook(resource, use_iterators=True,
-                         keep_vba=False, data_only=True)
+    return openpyxl.load_workbook(resource, use_iterators=True,
+                                  keep_vba=False, data_only=True)
 
 
 class XLSXStore(DataStore):
@@ -63,7 +66,7 @@ class XLSXObject(DataObject):
         * has_header: flag determining whether first line contains header or
           not. ``True`` by default.
         """
-        if isinstance(resource, Workbook):
+        if isinstance(resource, openpyxl.Workbook):
             self.workbook = resource
         else:
             self.workbook = _load_workbook(resource)
