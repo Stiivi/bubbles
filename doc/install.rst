@@ -48,6 +48,10 @@ certain features are going to be used.
 | sqlalchemy              | Streams from/to SQL databases. Source:                  |
 |                         | http://www.sqlalchemy.org                               |
 |                         | Recommended version is > 0.7                            |
++=========================+=========================================================+
+| openpyxl                | Reads from XLSX files.                                  |
+|                         | Source: http://bitbucket.org/ericgazoni/openpyxl        |
+|                         | Recommended version is > 2.0                            |
 +-------------------------+---------------------------------------------------------+
 
 
