@@ -4,7 +4,6 @@ import itertools
 import functools
 import operator
 import sys
-import datetime
 from collections import OrderedDict, namedtuple
 from ..metadata import *
 from ..common import get_logger
@@ -616,7 +615,7 @@ def _(ctx, obj, fields, fmt="%Y-%m-%dT%H:%M:%S.Z"):
                 value = None
                 if date_str:
                     try:
-                        value = datetime.datetime.strptime(row[index], fmt)
+                        value = datetime.strptime(row[index], fmt)
                     except ValueError:
                         pass
 
