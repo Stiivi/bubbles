@@ -132,7 +132,18 @@ class ExecutionEngine(object):
 
         # TODO: write documentation about consumable objects
 
+        # FIXME: FROM HERE vvvvvvv
+        for name, store in self.stores.items():
+            if isinstance(store, dict):
+                store = dict(store)
+                type_ = store.pop("type")
+                store = open_store(type_, **store)
+                self._owned_stores.append(store)
+
+            self.stores[name] = store
+
         plan = self.execution_plan(graph)
+        # FIXME: TO HERE ^^^^^^^
 
         # Set of already consumed nodes
         consumed = set()
