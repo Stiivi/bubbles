@@ -29,6 +29,8 @@ Metadata
     first three filtering arguments.
 
 
+    Signatures: ``rows``, ``sql``
+
 .. function:: rename_fields(object, rename)
 
     Rename the fields according to a dictionary `rename`. Keys are original
@@ -54,21 +56,37 @@ Record Filters
     equal to `value`. If `discard` is `True` then the result will be inverted
     – matching objects will be discarded.
 
+    Signatures: ``rows``, ``sql``
+
+.. function:: filter_by_set(object, key, values[, discard])
+
+    Resulting object will represent only those records where field `key` is
+    is one of values of the `values` set. If `discard` is `True` then the
+    result will be inverted – matching objects will be discarded.
+
+    Signatures: ``rows``, ``sql``
+
 .. function:: filter_by_range(object, key, low, high[, discard])
 
     Resulting object will represent only those records where field `key` is in
     the range `low` < `key` < `high`. If `discard` is `True` then the result
     will be inverted – matching objects will be discarded.
 
+    Signatures: ``rows``, ``sql``
+
 .. function:: filter_not_empty(object, field)
 
     Resulting object will represent only those records where field `key` is in
     not empty.
 
+    Signatures: ``rows``, ``sql``
+
 .. function:: filter_empty(object, field)
 
     Resulting object will represent only those records where field `key` is in
     empty.
+
+    Signatures: ``rows``, ``sql``
 
 .. function:: filter_predicate(object, predicate, fields[, discard], **kwargs)
 
@@ -76,6 +94,7 @@ Record Filters
     function `predicate`. `fields` is a list of fields that are passed to the
     `predicate` as arguments. `kwargs` are passed as the keyword arguments.
 
+    Signatures: ``rows``
 
     .. note::
 
@@ -93,6 +112,7 @@ Record Operations
     the `key`. Some backends might ignore the option if it is not relevant to
     them.
 
+    Signatures: ``rows``, ``sql``
 
 .. function:: distinct_rows(object,[ key][, is_sorted=False])
 
@@ -102,6 +122,8 @@ Record Operations
     already sorted according to the `key`. Some backends might ignore the
     option if it is not relevant to them.
 
+    Signatures: ``rows``, ``sql``
+
 .. function:: first_unique(object[, keys][, discard])
 
     Resulting object will represent rows that are unique if the original
@@ -109,10 +131,19 @@ Record Operations
     `discard` is `True` then the unique rows are discarded and the duplicates
     are kept.
 
+    Signatures: ``rows``, ``sql``
+
 .. function:: sample(object, value[, discard][, mode='first'])
     
     Resulting object will represent a sample of the `object`. The sample type
     is determined by `mode` which can be ``first``, ``nth`` or ``random``.
+
+    Signatures: ``rows``, ``sql``
+
+    .. note::
+    
+        The ``sql`` version of this operation can operate only in the
+        ``first`` mode.
 
 .. function:: discard_nth(object, step):
 
@@ -126,6 +157,8 @@ Ordering
     Returns an object that represents `object` sorted according to the
     `orderby`. The `orderby` is a list of keys to order by or list of tuples
     (`key`, `direction`) where `direction` can be ``asc`` or ``desc``.
+
+    Signatures: ``rows``, ``sql``
 
     .. note::
 
@@ -142,6 +175,8 @@ Aggregation
     `function`). `function` is an aggregation function: ``sum``, ``avg``,
     ``min``, ``max``
 
+    Signatures: ``rows``, ``sql``
+
 Field Operations
 ================
 
@@ -150,17 +185,26 @@ Field Operations
     Resulting object will have `fields` appended and their value will be
     `value`.
 
+    Signatures: ``rows``, ``sql``
+
+
 .. function:: dates_to_dimension(object[, fields][, unknown_date])
 
     Resulting object will have all `fields` converted into simple date
     dimension key `YYYYMMDD`. If no `fields` are specified then all fields of
     type `date` or `datetime` are considered.
 
+    Signatures: ``rows``, ``sql``
+
+
 .. function:: string_to_date(object, fields[, fmt])
 
     Resulting object will have `fields`, which are expected to be of type
     `string`, converted to date according to `fmt`. Default is ISO date
     format.
+
+    Signatures: ``rows``, ``sql``
+
 
 .. function:: split_date(object, fields[, parts])
 
@@ -171,23 +215,34 @@ Field Operations
     For example field `start_date` will yield new fields `start_date_year`,
     `start_date_month` and `start_date_day`.
 
+    Signatures: ``rows``, ``sql``
+
+
 .. function:: text_substitute(object, field, substitutions)
 
     Regular expression `substitutions` are applied to `field`
+
+    Signatures: ``rows``
 
 .. function:: empty_to_missing(object[, fields][, strict])
 
     Empty values in `fields` or all fields, if not specified, will be replaced
     with the respective field's `missing value` value.
 
+    Signatures: ``rows``
+
 .. function:: string_strip(object[, fields][, chars])
 
     Strip `chars` or spaces from the `fields` or all string fields.
+
+    Signatures: ``rows``
 
 .. function::  transpose_by(object, key, new_field)
 
     Resulting object will be transposed representation of `object`. `key` is a
     field which will be used for transposition.
+
+    Signatures: ``rows``
 
 
 Composition
@@ -198,10 +253,18 @@ Composition
     Resulting object will represent sequentialy chained `objects`. The
     `objects` are expected to have the same field structure.
 
-    ``rows`` version of the operation chains the iterators.
+    Signatures: ``rows``, ``sql``
 
-    ``sql`` version of the operation for objects from the same store uses
-    ``UNION``
+    .. note::
+
+        ``rows`` version of the operation chains the iterators.
+
+        ``sql`` version of the operation for objects from the same store uses
+        ``UNION``.
+        
+        The ``sql`` version also expects all of the objects to be composable
+        within the same connection, otherwise the ``rows`` version is retried.
+
 
 .. function:: join_details(master, detail, master_key, detail_key):
 
@@ -214,27 +277,49 @@ Composition
     ``sql`` version of hte operation yields a ``JOIN`` statement. 
 
 
-Operation Context
-=================
+Output
+======
 
-Operations are executed in an `operation context`. The context holds an
-operation catalogue, decides which implementation is chosen for given objects
-and decides execution policy.
+.. function:: pretty_print(objects[, target])
 
-Default context is provided as `default_context`.
+    Object rows are formatted to a textual table and printed to the standard
+    output or `target` stream if specified.
 
-Example:
+Conversions
+===========
 
-.. code-block:: python
+.. note::
 
-   from bubbles import default_context as c
-   from bubbles import data_object
+    These operations are meant to be used in Python only.
 
-   source = data_object("csv", "data.csv")
-   duplicates = c.op.duplicates(source)
+.. function:: fetch_all(object)
+
+    Retrieves all the data and puts them into an object wrapping a python
+    list. Useful for smaller datasets, not recommended for bigger data.
+
+.. function:: as_dict(object[, key][, value])
+
+    Returns dictionary constructed from the iterator.  `key` is name of a
+    field or list of fields that will be used as a simple key or composite
+    key. `value` is a field or list of fields that will be used as values.
+
+    If no `key` is provided, then the first field is used as key. If no
+    `value` is provided, then whole rows are used as values.
+
+    Keys are supposed to be unique. If they are not, result might be
+    unpredictable.
+
+    .. warning::
+
+        This method consumes whole iterator. Might be very costly on large
+        datasets.
+    
 
 
-To get operation catalogue, use: `context.debug_print_catalogue()`
+.. seealso::
+
+    :doc:`context`
+
 
 Adding Custom Operations
 ========================
