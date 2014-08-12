@@ -37,8 +37,8 @@ class _OperationReference(object):
 
 class OperationContext(object):
     # TODO: add parent_context
-    def __init__(self, retry_count=10):
-        """Creates an operation context. Default `retry_count` is 10.
+    def __init__(self):
+        """Creates an operation context.
 
         Use:
 
@@ -59,7 +59,6 @@ class OperationContext(object):
 
         self.logger = get_logger()
         self.observer = LoggingContextObserver(self.logger)
-        self.retry_count = retry_count
 
         self.retry_allow = []
         self.retry_deny = []
@@ -166,8 +165,8 @@ class OperationContext(object):
 
         # We try to perform requested operation. If the operation raises
         # RetryOperation exception, then we use signature from the exception
-        # for another operation. Operation can be retried retry_count number
-        # of times.
+        # for another operation.
+
         # Observer is notified about each retry.
 
         visited = set()
@@ -205,7 +204,7 @@ class OperationContext(object):
 
                     resolution_order.insert(0, retry)
 
-                elif retry:
+                else:
                     retry = resolution_order[0]
 
                 if self.observer:
