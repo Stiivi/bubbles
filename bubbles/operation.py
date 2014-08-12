@@ -197,10 +197,6 @@ class Operation(object):
         return other.name == self.name \
                 and other.registry == self.registry
 
-    def __call__(self, *args, **kwargs):
-        """Dispatch the operation in the default context."""
-        default_context.dispatch(self, *args, **kwargs)
-
     def signatures(self):
         """Return list of registered signatures."""
         return list(self.registry.keys())
@@ -257,6 +253,7 @@ class Operation(object):
                                     % (self.opcount + 1, func.__name__))
 
             self.registry[sig] = func
+            func.__name__ = self.name
             return func
 
         if signature and callable(signature[0]):
@@ -308,4 +305,6 @@ def operation(*args):
         # This is just returning the decorator
         opcount = args[0]
         return decorator
+
+
 
