@@ -6,15 +6,20 @@ from ..stores import open_store
 from .graph import *
 from ..errors import *
 from ..dev import experimental
+from functools import wraps
 
 __all__ = [
             "Pipeline"
         ]
 
+
+# TODO: rename to Process
+# TODO: remove requirement of context or name it as bind= (?)
+# TODO: make sure that no part of the pipeline requires context
 class Pipeline(object):
     def __init__(self, stores=None, context=None, graph=None, name=None):
-        """Creates a new pipeline with `context` and sets current object to
-        `obj`. If no context is provided, default one is used.
+        """Creates a new pipeline with `context`.  If no context is provided,
+        default context is used.
 
         Pipeline inherits operations from the `context` and uses context's
         dispatcher to call the operations. Operations are provided as
@@ -39,22 +44,10 @@ class Pipeline(object):
             execution engine class with custom execution policy.
 
         """
+        # We need the context to get number of operads for every argument
+        # FIXME: is this really necessary?
         self.context = context or default_context
-
-        self.stores = {}
-
-        # List of owned and therefore opened stores
-        self._owned_stores = []
-
-        stores = stores or {}
-        for name, store in stores.items():
-            if isinstance(store, dict):
-                store = dict(store)
-                type_ = store.pop("type")
-                store = open_store(type_, **store)
-                self._owned_stores.append(store)
-
-            self.stores[name] = store
+        self.stores = stores or {}
 
         self.graph = graph or Graph()
         self.name = name
@@ -62,10 +55,21 @@ class Pipeline(object):
         # Set default execution engine
         self.engine_class = ExecutionEngine
 
+        # Current node
         self.node = None
+        self.labels = {}
 
         self._test_if_needed = None
         self._test_if_satisfied = None
+
+    def clone(self):
+        """Creates a clone of the pipeline. The clone is a semi-shallow copy,
+        with new graph and labels instances.  """
+
+        clone = copy(self)
+        clone.graph = copy(self.graph)
+        clone.labels = dict(self.labels)
+        return clone
 
     def source(self, store, objname, **params):
         """Appends a source node to an empty pipeline. The source node will
@@ -267,6 +271,13 @@ class Pipeline(object):
 
         self._test_if_satisfied = Pipeline(self.stores, self.context)
         return self._test_if_satisfied
+
+    def label(self, name):
+        """Assigns a label to the last node in the pipeline. This node can be
+        later refereced as `pipeline[label]`. This method modifies the
+        pipeline."""
+        self.labels[name] = self.node
+        return self
 
 class _PipelineOperation(object):
     def __init__(self, pipeline, opname):
