@@ -5,11 +5,9 @@ from ..errors import *
 from ..dev import is_experimental
 from ..operation import Operation, Signature, get_representations
 from ..common import get_logger
-from ..threadlocal import LocalProxy
 
 __all__ = (
             "OperationContext",
-            "default_context",
             "LoggingContextObserver",
             "CollectingContextObserver",
         )
@@ -285,16 +283,6 @@ class _OperationGetter(object):
         return BoundOperation(self.context, name)
 
 
-def create_default_context():
-    """Creates a ExecutionContext with default operations."""
-    context = OperationContext()
-
-    for modname in _default_op_modules:
-        mod = _load_module(modname)
-        context.add_operations_from(mod)
-
-    return context
-
 def _load_module(modulepath):
     mod = __import__(modulepath)
     path = []
@@ -305,8 +293,4 @@ def _load_module(modulepath):
        except AttributeError:
            raise BubblesError("Unable to get %s" % (path, ))
     return mod
-
-
-default_context = LocalProxy("default_context",
-                             factory=create_default_context)
 

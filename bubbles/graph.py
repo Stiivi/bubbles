@@ -1,7 +1,6 @@
 from collections import OrderedDict, namedtuple, Counter
-from ..objects import data_object
-from ..common import get_logger
-from ..errors import *
+from .objects import data_object
+from .errors import *
 
 __all__ = (
     "Graph",
@@ -16,21 +15,31 @@ __all__ = (
     "ObjectFactoryNode"
 )
 
-class NodeBase(object):
+class Node(NodeBase):
+    def __init__(self, op, *args, **kwargs):
+        """Creates a `Node` with operation `op` and operation `options`"""
+
+        self.operation = op
+        self.args = args
+        self.kwargs = kwargs
+
     def outlets(self, context):
         """Default node has no outlets."""
         return []
 
-class Node(NodeBase):
-    def __init__(self, opname, *args, **kwargs):
-        """Creates a `Node` with operation `op` and operation `options`"""
-
-        self.opname = opname
-        self.args = args
-        self.kwargs = kwargs
+    def __or__(self, other):
+        if isinstance(other, (NodeBase, Pipeline)):
+            p = Pipeline()
+            p.append_node(self)
+            return p | other
+        else:
+            raise TypeError("Node can be piped only to another node or a "
+                            "pipeline")
 
     def is_source(self):
-        return False
+        return self.operation.is_source
+
+    # TODO: review following methods
 
     def evaluate(self, engine, context, operands=None):
         """Evaluates the operation with name `opname` within `context`"""
@@ -159,8 +168,6 @@ class Graph(object):
         super(Graph, self).__init__()
         self.nodes = OrderedDict()
         self.connections = set()
-
-        self.logger = get_logger()
 
         self._name_sequence = 1
 
