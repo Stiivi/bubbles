@@ -43,7 +43,7 @@ class Node(object):
         return self._outlets
 
     def __str__(self):
-        return "<{} {}>".format(self.operation, id(self))
+        return "<{} {}>".format(self.opname, id(self))
 
 
 Connection = namedtuple("Connection", ["source", "target", "outlet"])
