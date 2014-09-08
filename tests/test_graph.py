@@ -54,6 +54,8 @@ class GraphTestCase(unittest.TestCase):
         sources = g.sources(join)
         self.assertEqual(len(sources), 2)
 
+        self.assertCountEqual(sources.keys(), ["default", "1"])
+
 
 
 if __name__ == "__main__":
