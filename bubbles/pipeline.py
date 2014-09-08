@@ -64,6 +64,26 @@ class Pipeline(object):
         # TODO: handle joins
         self.head.configure(*args, **kwargs)
 
+        operands = []
+
+        # Gather input outlets
+        # 1. gather anonymous outlets – appearance position in the argument
+        #    list is the outlet number
+        # 2. gather named outlets – key-word argument which is a node is
+        #    considered an outlet
+
+        # TODO: make this a "pipeline reference"
+        # TODO: don't allow node to be configured twice
+        for i, arg in enumerate(args):
+            if isinstance(arg, Pipeline):
+                operands.append(i)
+
+        for key, value in kwargs.items():
+            if isinstance(value, Pipeline):
+                operands.append(key)
+
+        self.head.operands = operands
+
         return self
 
     def label(self, name):

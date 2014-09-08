@@ -13,7 +13,7 @@ class Node(object):
         """Creates a `Node` with operation `op` and operation `options`"""
 
         self.opname = op
-        self._outlets = []
+        self.operands = []
 
         self.configure(*args, **kwargs)
 
@@ -21,26 +21,6 @@ class Node(object):
         self.args = args
         self.kwargs = kwargs
 
-        self._outlets = []
-
-        # Gather input outlets
-        # 1. gather anonymous outlets – appearance position in the argument
-        #    list is the outlet number -> converted to a string
-        # 2. gather named outlets – key-word argument which is a node is
-        #    considered an outlet
-
-        for i, arg in enumerate(self.args):
-            if isinstance(arg, Node):
-                self._outlets.append(str(i))
-
-        for key, value in self.kwargs:
-            if isinstance(value, Node):
-                self._outlets.append(key)
-
-    @property
-    def outlets(self):
-        """Return outlets of the node derived from node arguments"""
-        return self._outlets
 
     def __str__(self):
         return "<{} {}>".format(self.opname, id(self))
