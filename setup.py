@@ -17,7 +17,7 @@ setup(
         '': ['*.txt', '*.rst'],
     },
 
-    scripts=['bin/bubbles'],
+    scripts=['bin/bubble'],
 
     classifiers=[
         'Development Status :: 4 - Beta',
