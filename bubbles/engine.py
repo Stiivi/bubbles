@@ -102,11 +102,14 @@ class ExecutionEngine(object):
             sources = graph.sources(node)
 
             outlet_nodes = []
-            for i, outlet in enumerate(node.outlets):
-                if i == 0:
-                    outlet_node = sources.get(outlet) or sources.get("default")
-                else:
-                    outlet_node = sources.get(outlet)
+
+            if "default" in sources:
+                default = sources["default"]
+                outlet_nodes.append(node_steps[default])
+                consumption[default] += 1
+
+            for outlet in node.operands:
+                outlet_node = sources.get(outlet)
 
                 if not outlet_node:
                     raise BubblesError("Outlet '%s' is not connected" %
@@ -118,6 +121,8 @@ class ExecutionEngine(object):
                 # Count the consumption (see note before the outer loop)
                 consumption[outlet_node] += 1
 
+            print("=== NODE %s(%s)" % (node.opname, node.operands))
+            print("--- STEP %s(%s)" % (node.opname, outlet_nodes))
             step = ExecutionStep(node, outlets=outlet_nodes)
 
             node_steps[node] = step
