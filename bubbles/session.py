@@ -50,6 +50,11 @@ class Session(object):
 
         return True
 
+    def close(self):
+        """Close open connections and cleans up the session."""
+        # TODO: implement this
+        pass
+
 
 # XXX XXX OBSOLETE CODE BELOW XXX XXX
 

@@ -2,7 +2,7 @@
 from collections import namedtuple, Counter
 from .op import get_default_library
 from .common import get_logger
-from .errors import *
+from .errors import BubblesError
 from .session import Session
 
 __all__ = (
@@ -174,8 +174,8 @@ class ExecutionEngine(object):
             # Evaluate the step
             op = self.library[step.node.opname]
             print("EXECUTING OP %s" % op)
-            # step.result = ...
-            # step.evaluate(self, session, operands)
+            # TODO: what about node.args?
+            step.result = op(session, *operands, **step.node.kwargs)
 
         if close_session:
             session.close()

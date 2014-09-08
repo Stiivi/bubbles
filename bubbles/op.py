@@ -3,14 +3,16 @@
 import inspect
 
 from collections import namedtuple
-from functools import total_ordering
+from functools import total_ordering, wraps
 from warnings import warn
 from inspect import Parameter
 from sys import intern
 
 import itertools
 
-from .errors import ArgumentError, RetryOperation
+from .metadata import FieldList
+from .objects import IterableDataSource
+from .errors import ArgumentError, RetryOperation, OperationError
 
 
 __all__ = (
@@ -19,6 +21,8 @@ __all__ = (
     "Signature",
     "to_type",
     "get_signature",
+
+    "datasource",
 )
 
 Operand = namedtuple("Operand", ["name", "type"])
@@ -193,6 +197,18 @@ class Signature(object):
          return ", ".join([op.specifier for op in self.operands])
 
 
+# TODO: clean-up
+def unary_generator(func):
+    """Wraps a function that provides an operation returning an iterator.
+    Assumes return fields are the same fields as first argument object"""
+    @wraps(func)
+    def decorator(ctx, obj, *args, **kwargs):
+        result = func(ctx, obj, *args, **kwargs)
+        return IterableDataSource(result, obj.fields.clone())
+
+    return decorator
+
+
 class Operation(object):
     def __init__(self, name):
         self.name = name
@@ -206,6 +222,10 @@ class Operation(object):
 
         def register_function(func):
             sig = get_signature(func)
+
+            # Make the function return a real data object
+            if inspect.isgeneratorfunction(func):
+                func = unary_generator(func)
 
             if self.prototype and len(sig) != len(self.prototype):
                 raise ArgumentError("The node '%s' expects %d operands "
@@ -393,6 +413,33 @@ def operation(*args, **kwargs):
         return decorator(args[0])
     else:
         # This is just returning the decorator
-        opcount = args[0]
         return decorator
 
+
+def datasource(*args, **kwargs):
+    """Wraps a function as a datasource operation. Optional argument `fields`
+    contains a `FieldList`-like object."""
+
+    fields = kwargs.get("fields")
+    name = kwargs.get("name")
+
+    def decorator(func):
+        nonlocal fields
+        nonlocal name
+
+        if fields:
+            fields = FieldList(*fields)
+        else:
+            fields = FieldList(("data", "unknown"))
+
+        @wraps(func)
+        def wrapper(ctx, *args, **kwargs):
+            result = func(ctx, *args, **kwargs)
+            return IterableDataSource(result, fields)
+
+        return operation(wrapper, name=name)
+
+    if len(args) == 1 and callable(args[0]):
+        return decorator(args[0])
+    else:
+        return decorator
