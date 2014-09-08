@@ -38,14 +38,6 @@ class TextObject(DataObject):
         return self.string
 
 class OperationTestCase(unittest.TestCase):
-    def test_match(self):
-        self.assertTrue(Signature("sql").matches("sql"))
-        self.assertTrue(Signature("*").matches("sql"))
-        self.assertTrue(Signature("sql[]").matches("sql[]"))
-        self.assertTrue(Signature("*[]").matches("sql[]"))
-
-        self.assertFalse(Signature("sql").matches("rows"))
-        self.assertFalse(Signature("sql").matches("sql[]"))
 
     def test_common_reps(self):
         objs = [

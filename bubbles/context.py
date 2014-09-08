@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 import itertools
 from collections import defaultdict
-from ..errors import *
-from ..dev import is_experimental
-from ..operation import Operation, Signature, get_representations
-from ..common import get_logger
+from .errors import *
+from .dev import is_experimental
+from .op import Signature
+from .common import get_logger
 
 __all__ = (
-            "OperationContext",
+            "Context",
             "LoggingContextObserver",
             "CollectingContextObserver",
         )
@@ -33,7 +33,7 @@ class _OperationReference(object):
         return self.context.call(self.name, *args, **kwargs)
 
 
-class OperationContext(object):
+class Context(object):
     # TODO: add parent_context
     def __init__(self):
         """Creates an operation context.
@@ -50,13 +50,10 @@ class OperationContext(object):
         representations of `table` object.
         """
 
-        super().__init__()
-        self.operations = {}
-
-        self.op = _OperationGetter(self)
-
         self.logger = get_logger()
         self.observer = LoggingContextObserver(self.logger)
+
+        self.operations = {}
 
         self.retry_allow = []
         self.retry_deny = []
@@ -70,23 +67,18 @@ class OperationContext(object):
         except KeyError:
             return self.operation_not_found(name)
 
-    def add_operations_from(self, obj):
-        """Import operations from `obj`. All attributes of `obj` are
-        inspected. If they are instances of Operation, then the operation is
-        imported."""
+    def register_operations(self, ops):
+        """Register operations from a list `ops`."""
+        for op in ops:
+            self.register_operation(op)
 
-        for name in dir(obj):
-            op = getattr(obj, name)
-            if isinstance(op, Operation):
-                self.add_operation(op)
-
-    def add_operation(self, op):
-        """Registers a decorated operation.  operation is considered to be a
-        context's method and would receive the context as first argument."""
+    def register_operation(self, op):
+        """Registers an operation `op` which should be an instance of
+        `Operation` (for example a function decorated with @operation)."""
 
         self.operations[op.name] = op
 
-    def remove_operation(self, name):
+    def unregister_operation(self, name):
         """Removes all operations with `name` and `signature`. If no
         `signature` is specified, then all operations with given name are
         removed, regardles of the signature."""

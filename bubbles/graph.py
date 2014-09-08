@@ -6,148 +6,47 @@ __all__ = (
     "Graph",
     "Node",
     "Connection",
-
-    # Not quite public
-    "Node",
-    "StoreObjectNode",
-    "ObjectNode",
-    "CreateObjectNode",
-    "ObjectFactoryNode"
 )
 
-class Node(NodeBase):
+class Node(object):
     def __init__(self, op, *args, **kwargs):
         """Creates a `Node` with operation `op` and operation `options`"""
 
-        self.operation = op
+        self.opname = op
+        self._outlets = []
+
+        self.configure(*args, **kwargs)
+
+    def configure(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
 
-    def outlets(self, context):
-        """Default node has no outlets."""
-        return []
+        self._outlets = []
 
-    def __or__(self, other):
-        if isinstance(other, (NodeBase, Pipeline)):
-            p = Pipeline()
-            p.append_node(self)
-            return p | other
-        else:
-            raise TypeError("Node can be piped only to another node or a "
-                            "pipeline")
+        # Gather input outlets
+        # 1. gather anonymous outlets – appearance position in the argument
+        #    list is the outlet number -> converted to a string
+        # 2. gather named outlets – key-word argument which is a node is
+        #    considered an outlet
 
-    def is_source(self):
-        return self.operation.is_source
+        for i, arg in enumerate(self.args):
+            if isinstance(arg, Node):
+                self._outlets.append(str(i))
 
-    # TODO: review following methods
+        for key, value in self.kwargs:
+            if isinstance(value, Node):
+                self._outlets.append(key)
 
-    def evaluate(self, engine, context, operands=None):
-        """Evaluates the operation with name `opname` within `context`"""
-        # fixme: identify operands in *args
-        args = list(operands) + list(self.args)
-        result = context.call(self.opname, *args, **self.kwargs)
-        return result
+    @property
+    def outlets(self):
+        """Return outlets of the node derived from node arguments"""
+        return self._outlets
 
     def __str__(self):
-        return "operation %s" % self.opname
-
-    def outlets(self, context):
-        prototype = context.operation(self.opname)
-        return prototype.operands
-
-
-class ObjectFactoryNode(NodeBase):
-    def __init__(self, factory, *args, **kwargs):
-
-        self.factory = factory
-        self.args = args
-        self.kwargs = kwargs
-
-    def is_source(self):
-        return True
-
-    def evaluate(self, engine, context, operands=None):
-        return data_object(self.factory, *self.args, **self.kwargs)
-
-    def __str__(self):
-        return "factory source %s" % self.factory
-
-class StoreObjectNode(NodeBase):
-    def __init__(self, store, objname, **parameters):
-        self.store = store
-        self.objname = objname
-        self.parameters = parameters
-
-    def is_source(self):
-        return True
-
-    def evaluate(self, engine, context, operands=None):
-        """Looks up the object `objname` in `store` from `engine`."""
-
-        try:
-            store = engine.stores[self.store]
-        except KeyError:
-            raise ArgumentError("Unknown store '%s'" % self.store)
-
-        return store.get_object(self.objname, **self.parameters)
-
-
-    def __str__(self):
-        return "source %s in %s" % (self.objname, self.store)
-
-class ObjectNode(NodeBase):
-    def __init__(self, obj):
-        self.obj = obj
-
-    def is_source(self):
-        return True
-
-    def evaluate(self, engine, context, operands=None):
-        """Returns the contained object."""
-        return self.obj
-
-    def __str__(self):
-        return "object %s" % (self.obj, )
-
-
-class CreateObjectNode(NodeBase):
-    def __init__(self, store, name, *args, **kwargs):
-        self.store = store
-        self.name = name
-        self.args = args
-        self.kwargs = kwargs
-
-    def is_source(self):
-        return False
-
-    def evaluate(self, engine, context, operands=None):
-        if len(operands) != 1:
-            raise ArgumentError("Number of operands for 'create object' should be 1")
-
-        source = operands[0]
-
-        try:
-            store = engine.stores[self.store]
-        except KeyError:
-            raise ArgumentError("Unknown store %s" % self.store)
-
-        target = store.create(self.name, source.fields,
-                              *self.args, **self.kwargs)
-        target.append_from(source)
-
-        return target
-
-    def outlets(self, context):
-        """`Create` node has one outlet for an object that will be used to
-        fill the created object's content."""
-        return ["default"]
-
-    def __str__(self):
-        return("create %s in %s" % (self.name, self.store))
+        return "<{} {}>".format(self.operation, id(self))
 
 
 Connection = namedtuple("Connection", ["source", "target", "outlet"])
-
 
 class Graph(object):
     """Data processing graph.
@@ -200,7 +99,7 @@ class Graph(object):
 
         name = name or self._generate_node_name()
 
-        if name in self.nodes:
+        if name and name in self.nodes:
             raise KeyError("Node with name %s already exists" % name)
 
         self.nodes[name] = node

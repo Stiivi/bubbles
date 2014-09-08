@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 from collections import namedtuple, Counter
-from ..errors import *
+from .op import get_registry
+from .context import Context
+from .common import get_logger
+from .errors import *
 
 __all__ = (
     "ExecutionEngine",
@@ -54,7 +57,7 @@ ExecutionPlan = namedtuple("ExecutionPlan", ["steps", "consumption"])
 
 class ExecutionEngine(object):
 
-    def __init__(self, context, stores=None):
+    def __init__(self, context=None, stores=None):
         """Creates an instance of execution engine within an execution
         `context`.
 
@@ -66,8 +69,14 @@ class ExecutionEngine(object):
         """
 
         self.stores = stores or {}
-        self.context = context
-        self.logger = context.logger
+        if context:
+            self.context = context
+        else:
+            self.context = Context()
+            # Register default operations
+            self.context.register_operations(get_registry().values())
+
+        self.logger = get_logger()
 
     def execution_plan(self, graph):
         """Returns a list of topologically sorted `ExecutionSteps`, ready to

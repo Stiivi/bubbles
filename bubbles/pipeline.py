@@ -46,8 +46,11 @@ class Pipeline(object):
         return p
 
     def __getattr__(self, key):
-        p = copy.copy(self)
+        p = self.__class__.__new__(self.__class__)
+        p.__dict__ = self.__dict__.copy()
+
         node = Node(key)
+        p.graph.add(node)
 
         if p.head:
             p.graph.connect(p.head, node)
@@ -59,7 +62,7 @@ class Pipeline(object):
     def __call__(self, *args, **kwargs):
         # Configure node
         # TODO: handle joins
-        self.head(*args, **kwargs)
+        self.head.configure(*args, **kwargs)
 
         return self
 
