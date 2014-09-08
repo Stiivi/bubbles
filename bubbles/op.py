@@ -1,13 +1,16 @@
 # -*- Encoding: utf8 -*-
 
 import inspect
-from inspect import Parameter
 
 from collections import namedtuple
-from sys import intern
 from functools import total_ordering
+from warnings import warn
+from inspect import Parameter
+from sys import intern
 
-from .errors import ArgumentError
+import itertools
+
+from .errors import ArgumentError, RetryOperation
 
 
 __all__ = (
@@ -25,7 +28,7 @@ Type = namedtuple("Type", ["specifier", "islist"])
 ANY_SPECIFIER = "*"
 Any = Type(ANY_SPECIFIER, False)
 
-_registry = {}
+_default_library = {}
 
 def to_type(obj):
     """Returns a `Type` object for the `string`"""
@@ -41,6 +44,40 @@ def to_type(obj):
         specifier = obj
 
     return Type(specifier, islist)
+
+
+def common_representations(*objects):
+    """Return list of common representations of `objects`"""
+
+    common = list(objects[0].reps())
+    for obj in objects[1:]:
+        common = [rep for rep in common if rep in obj.reps()]
+
+    return common
+
+
+def get_representations(*args, **kwargs):
+    """For every operand get list of it's representations. Returns list of
+    lists."""
+
+    reps = []
+    # Get representations of objects
+    for obj in args:
+        if hasattr(obj, "reps"):
+            reps.append(obj.reps())
+        elif hasattr(obj, "representations"):
+            warn("`representations` is depreciated in favor of `reps`",
+                 DeprecationWarning)
+            reps.append(obj.representations())
+        elif isinstance(obj, (list, tuple)):
+            common = common_representations(*obj)
+            common = [sig + "[]" for sig in common]
+            reps.append(common)
+        else:
+            raise ArgumentError("Unknown type of operation argument "\
+                                "%s (not a data object)" % type(obj).__name__)
+
+    return reps
 
 def get_signature(fun):
     """Returns operation signature for callable `fun`.
@@ -162,6 +199,7 @@ class Operation(object):
 
         self.prototype = None
         self.registry = dict()
+        self.experimental = False
 
     def register(self, *args):
         """Decorator that registers a function for this operation."""
@@ -232,13 +270,89 @@ class Operation(object):
         matches = []
 
         for itertype in itertools.product(*types):
-            matches += [sig for sig in signatures if sig.matches(*i)]
+            matches += [sig for sig in signatures if sig.match(*itertype)]
 
         if not matches:
             raise OperationError("No matching signature found for operation '%s' "
                                  " (args: %s)" %
                                     (self.name, types))
         return matches
+
+
+    def __call__(self, session, *args, **kwargs):
+        return self.dispatch(session, *args, **kwargs)
+
+    def dispatch(self, session, *args, **kwargs):
+        """Dispatch the operation to appropriate function according to the
+        arguments. If the function raises `RetryOperation` then another
+        function in the execution order is tried."""
+
+        opcount = len(self.prototype)
+
+        operands = args[:opcount]
+
+        reps = get_representations(*operands)
+        resolution_order = self.resolution_order(reps)
+        first_signature = resolution_order[0]
+
+        session.logger.debug("op %s(%s)", self.name, reps)
+
+        result = None
+
+        # We try to perform requested operation. If the operation raises
+        # RetryOperation exception, then we use signature from the exception
+        # for another operation.
+
+        # Observer is notified about each retry.
+
+        visited = set()
+
+        while resolution_order:
+            sig = resolution_order.pop(0)
+            visited.add(sig)
+
+            try:
+                function = self.registry[sig]
+            except KeyError:
+                raise OperationError("No signature (%s) in operation %s"
+                                     % (sig, self))
+
+            try:
+                if self.experimental:
+                    warn("operation {} is experimental".format(self.name),
+                         FutureWarning)
+
+                result = function(session, *args, **kwargs)
+
+            except RetryOperation as e:
+                if not session.can_retry(self.name):
+                    raise RetryError("Retry of operation '%s' is not allowed")
+
+                retry = e.signature
+
+                if retry:
+                    retry = Signature(*retry)
+
+                    if retry in visited:
+                        raise RetryError("Asked to retry operation %s with "
+                                         "signature %s, but it was already "
+                                         "visited."
+                                         % (op_name, retry))
+
+                    resolution_order.insert(0, retry)
+
+                else:
+                    retry = resolution_order[0]
+
+            else:
+                # Let the observer know which operation was called at last and
+                # completed sucessfully
+                session.logger.debug("Called %s(%s)", self.name, sig)
+                return result
+
+        raise RetryError("No remaining signature to rerty when calling "
+                         "operation %s with %s"
+                         % (op_name, first_signature))
 
 class _OperationGetter(object):
     def __init__(self):
@@ -249,11 +363,11 @@ class _OperationGetter(object):
 
 
 def get_operation(name):
-    return _registry[name]
+    return _default_library[name]
 
 # TODO: this is temporary solution
-def get_registry():
-    return _registry
+def get_default_library():
+    return _default_library
 
 def operation(*args, **kwargs):
     """Creates an operation prototype. The operation will have the same name
@@ -267,10 +381,10 @@ def operation(*args, **kwargs):
 
         name = name or func.__name__
         try:
-            op = _registry[name]
+            op = _default_library[name]
         except KeyError:
             op = Operation(name)
-            _registry[name] = op
+            _default_library[name] = op
 
         op.register(func)
         return op
