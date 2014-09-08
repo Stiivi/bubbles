@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 from collections import namedtuple, Counter
-from .op import get_registry
-from .context import Context
+from .op import get_default_library
 from .common import get_logger
 from .errors import *
+from .session import Session
 
 __all__ = (
     "ExecutionEngine",
@@ -20,11 +20,11 @@ class ExecutionStep(object):
         self.outlets = outlets or []
         self.result = result
 
-    def evaluate(self, engine, context, operands):
+    def evaluate(self, engine, session, operands):
         """Evaluates the wrapped node within `context` and with `operands`.
         Stores the evaluation result."""
 
-        self.result = self.node.evaluate(engine, context, operands)
+        self.result = self.node.evaluate(engine, session, operands)
         return self.result
 
     def __str__(self):
@@ -57,25 +57,20 @@ ExecutionPlan = namedtuple("ExecutionPlan", ["steps", "consumption"])
 
 class ExecutionEngine(object):
 
-    def __init__(self, context=None, stores=None):
-        """Creates an instance of execution engine within an execution
-        `context`.
-
-        `stores` is a mapping of store names and opened data stores. Stores
-        are used when resoving data sources by reference.
-
-        Execution engine is also used in :class:`Pipeline` objects to run the
-        pipelines.
+    def __init__(self, stores=None, library=None):
+        """Creates a basic execution engine.
+        `stores` is a dictionary of store names and data store configuration.
+        `library` is an operation catalog – a dictionary of operations.
         """
 
         self.stores = stores or {}
-        if context:
-            self.context = context
+        if library:
+            self.library = library
         else:
-            self.context = Context()
-            # Register default operations
-            self.context.register_operations(get_registry().values())
+            self.library = get_default_library()
 
+        # TODO: not yet
+        self.session = None
         self.logger = get_logger()
 
     def execution_plan(self, graph):
@@ -105,10 +100,9 @@ class ExecutionEngine(object):
 
         for node in sorted_nodes:
             sources = graph.sources(node)
-            outlets = node.outlets(self.context)
 
             outlet_nodes = []
-            for i, outlet in enumerate(outlets):
+            for i, outlet in enumerate(node.outlets):
                 if i == 0:
                     outlet_node = sources.get(outlet) or sources.get("default")
                 else:
@@ -139,23 +133,17 @@ class ExecutionEngine(object):
         :meth:`ExecutionEngine.prepare_execution_plan` for more information.
         """
 
-        # TODO: write documentation about consumable objects
-
-        # FIXME: FROM HERE vvvvvvv
-        for name, store in self.stores.items():
-            if isinstance(store, dict):
-                store = dict(store)
-                type_ = store.pop("type")
-                store = open_store(type_, **store)
-                self._owned_stores.append(store)
-
-            self.stores[name] = store
-
         plan = self.execution_plan(graph)
-        # FIXME: TO HERE ^^^^^^^
 
         # Set of already consumed nodes
         consumed = set()
+
+        if self.session:
+            session = self.session
+            close_session = False
+        else:
+            session = Session()
+            close_session = True
 
         for i, step in enumerate(plan.steps):
             self.logger.debug("step %s: %s" % (i, str(step)))
@@ -172,6 +160,7 @@ class ExecutionEngine(object):
                 # over consumed iterator of rows, which might be quite costly.
 
                 consume_times = plan.consumption[outlet.node]
+
                 if outlet.result.is_consumable() and consume_times > 1:
                     if outlet.node not in consumed:
                         self.logger.debug("retaining consumable %s. it will "
@@ -182,4 +171,11 @@ class ExecutionEngine(object):
                 consumed.add(outlet.node)
                 operands.append(outlet.result)
 
-            step.evaluate(self, self.context, operands)
+            # Evaluate the step
+            op = self.library[step.node.opname]
+            print("EXECUTING OP %s" % op)
+            # step.result = ...
+            # step.evaluate(self, session, operands)
+
+        if close_session:
+            session.close()
