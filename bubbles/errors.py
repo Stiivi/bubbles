@@ -4,6 +4,7 @@
 class BubblesError(Exception):
 	"""Basic error class"""
 	pass
+
 class UserError(BubblesError):
     """Superclass for all errors caused by the bubbles users. Error
     messages from this error might be safely passed to the front-end. Do not
@@ -13,6 +14,10 @@ class UserError(BubblesError):
 class InternalError(BubblesError):
     """Superclass for all errors that happened internally: configuration
     issues, connection problems, model inconsistencies..."""
+
+class PipelineError(UserError):
+    """Raised when pipeline is misconfigured"""
+    pass
 
 class ConfigurationError(InternalError):
     """Raised when there is a problem with workspace configuration assumed."""
