@@ -15,12 +15,14 @@ class Node(object):
         self.opname = op
         self.operands = []
 
+        self.args = None
+        self.kwargs = None
+
         self.configure(*args, **kwargs)
 
     def configure(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
-
 
     def __str__(self):
         return "<{} {}>".format(self.opname, id(self))
@@ -35,7 +37,7 @@ class Graph(object):
             Modifications are not thread safe – as intended.
     """
 
-    def __init__(self, nodes=None, connections=None):
+    def __init__(self):
         """Creates a node graph with connections.
 
         :Parameters:
@@ -45,31 +47,9 @@ class Graph(object):
         """
 
         super(Graph, self).__init__()
-        self.nodes = OrderedDict()
+        self.nodes = set()
         self.connections = set()
-
-        self._name_sequence = 1
-
-        if nodes:
-            try:
-                for name, node in nodes.items():
-                    self.add(node, name)
-            except:
-                raise ValueError("Nodes should be a dictionary, is %s" % type(nodes))
-
-        if connections:
-            for connection in connections:
-                self.connect(*connectio)
-
-    def _generate_node_name(self):
-        """Generates unique name for a node"""
-        while 1:
-            name = "node" + str(self._name_sequence)
-            if name not in self.nodes.keys():
-                break
-            self._name_sequence += 1
-
-        return name
+        self.labels = {}
 
     def add(self, node, name=None):
         """Add a `node` into the stream. Does not allow to add named node if
@@ -77,52 +57,21 @@ class Graph(object):
         provided. Node name is generated as ``node`` + sequence number.
         Uniqueness is tested."""
 
-        name = name or self._generate_node_name()
+        self.nodes.add(node)
+        if name:
+            self.labels[name] = node
 
-        if name and name in self.nodes:
-            raise KeyError("Node with name %s already exists" % name)
-
-        self.nodes[name] = node
-
-        return name
-
-    def node_name(self, node):
-        """Returns name of `node`."""
-        # There should not be more
-        if not node:
-            raise ValueError("No node provided")
-
-        names = [key for key,value in self.nodes.items() if value==node]
-
-        if len(names) == 1:
-            return names[0]
-        elif len(names) > 1:
-            raise Exception("There are more references to the same node")
-        else: # if len(names) == 0
-            raise Exception("Can not find node '%s'" % node)
-
-    def rename_node(self, node, name):
-        """Sets a name for `node`. Raises an exception if the `node` is not
-        part of the stream, if `name` is empty or there is already node with
-        the same name. """
-
-        if not name:
-            raise ValueError("No node name provided for rename")
-        if name in self.nodes():
-            raise ValueError("Node with name '%s' already exists" % name)
-
-        old_name = self.node_name(node)
-
-        del self.nodes[old_name]
-        self.nodes[name] = node
+    def update(self, other):
+        self.nodes |= other.nodes
+        self.connections |= other.connections
 
     def node(self, node):
         """Coalesce node reference: `reference` should be either a node name
         or a node. Returns the node object."""
 
         if isinstance(node, str):
-            return self.nodes[node]
-        elif node in self.nodes.values():
+            return self.labels[node]
+        elif node in self.nodes:
             return node
         else:
             raise ValueError("Unable to find node '%s'" % node)
@@ -132,15 +81,14 @@ class Graph(object):
         removed."""
 
         # Allow node name, get the real node object
-        if isinstance(node, basestring):
-            name = node
-            node = self.nodes[name]
-        else:
-            name = self.node_name(node)
+        self.nodes.remove(node)
 
-        del self.nodes[name]
+        for key, value in self.labels.items():
+            if value is node:
+                del self.labels[key]
+                break
 
-        remove = [c for c in self.connections if c[0] == node or c[1] == node]
+        remove = [c for c in self.connections if c[0] is node or c[1] is node]
 
         for connection in remove:
             self.connections.remove(connection)
@@ -158,12 +106,6 @@ class Graph(object):
                                 outlet)
         connection = Connection(source, target, outlet)
         self.connections.add(connection)
-
-    def remove_connection(self, source, target):
-        """Remove connection between source and target nodes, if exists."""
-
-        connection = (self.coalesce_node(source), self.coalesce_node(target))
-        self.connections.discard(connection)
 
     def sorted_nodes(self):
         """
@@ -198,12 +140,11 @@ class Graph(object):
                     conns.add(connection)
             return conns
 
-        nodes = set(self.nodes.values())
         connections = self.connections.copy()
         sorted_nodes = []
 
         # Find source nodes:
-        source_nodes = set([n for n in nodes if is_source(n, connections)])
+        source_nodes = set([n for n in self.nodes if is_source(n, connections)])
 
         # while S is non-empty do
         while source_nodes:
