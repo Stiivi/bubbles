@@ -5,8 +5,8 @@ from .pipeline import *
 from .graph import *
 from .engine import *
 from .session import *
+from .objects import *
 
-
-__version__ = "0.4"
+__version__ = "0.3"
 
 

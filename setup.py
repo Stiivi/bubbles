@@ -4,7 +4,7 @@ install_requires = []
 
 setup(
     name = "bubbles",
-    version = '0.2',
+    version = '0.3',
 
     # Project uses reStructuredText, so ensure that the docutils get
     # installed or upgraded on the target machine
