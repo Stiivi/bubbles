@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from .graph import Graph, Node
-from .errors import *
+from .errors import PipelineError
+from collections import OrderedDict
 
 import copy
 
@@ -29,42 +30,47 @@ class Pipeline(object):
             raise TypeError("Node can be piped only to another node or a "
                             "pipeline")
 
-    def clone(self):
+    def copy(self):
         """Creates a clone of the pipeline. The clone is a semi-shallow copy,
         with new graph and labels instances.  """
 
-        clone = copy.deepcopy(self)
-        return clone
-
-    def __deepcopy__(self, memo):
-        p = Pipeline(copy.deepcopy(graph, memo))
+        p = Pipeline()
+        p.graph.update(self.graph)
         p.labels = dict(self.labels)
-
-        # Weak reference
         p.head = self.head
 
         return p
 
     def __getattr__(self, key):
-        p = self.__class__.__new__(self.__class__)
-        p.__dict__ = self.__dict__.copy()
+        return _PipelineHead(self, key)
 
-        node = Node(key)
+
+    def label(self, name):
+        """Assigns a label to the last node in the pipeline. This node can be
+        later refereced as `pipeline[label]`. This method modifies the
+        pipeline."""
+        self.labels[name] = self.head
+        return self
+
+
+class _PipelineHead(object):
+    def __init__(self, pipeline, node_name):
+        self.pipeline = pipeline
+        self.node_name = node_name
+
+    def __call__(self, *args, **kwargs):
+        p = self.pipeline.copy()
+
+        node = Node(self.node_name)
         p.graph.add(node)
 
         if p.head:
+            # import pdb; pdb.set_trace()
             p.graph.connect(p.head, node)
 
         p.head = node
+        p.head.configure(*args, **kwargs)
 
-        return p
-
-    def __call__(self, *args, **kwargs):
-        # Configure node
-        # TODO: handle joins
-        self.head.configure(*args, **kwargs)
-
-        operands = []
 
         # Gather input outlets
         # 1. gather anonymous outlets – appearance position in the argument
@@ -73,25 +79,29 @@ class Pipeline(object):
         #    considered an outlet
 
         # TODO: make this a "pipeline reference"
-        # TODO: don't allow node to be configured twice
-        for i, arg in enumerate(args):
-            if isinstance(arg, Pipeline):
-                operands.append(i)
+        operands = []
+        for key, value in enumerate(args):
+            if isinstance(value, Pipeline):
+                operands.append((key, value))
 
         for key, value in kwargs.items():
             if isinstance(value, Pipeline):
-                operands.append(key)
+                operands.append((key, value))
 
-        self.head.operands = operands
+        names = []
+        for name, other in operands:
+            names.append(name)
 
-        return self
+            if other is not self.pipeline:
+                p.graph.update(other.graph)
 
-    def label(self, name):
-        """Assigns a label to the last node in the pipeline. This node can be
-        later refereced as `pipeline[label]`. This method modifies the
-        pipeline."""
-        self.labels[name] = self.head
-        return self
+            print("--- connecting ops: %s -> %s as %s" %
+                       (other.head, p.head, name))
+            p.graph.connect(other.head, p.head, name)
+
+        p.head.operands = names
+
+        return p
 
 # TODO Obsolete
 # =============
@@ -139,7 +149,7 @@ class _PipelineOperation(object):
 
             # All operands should be pipeline objects with a node
             if not all(isinstance(o, Pipeline) for o in operands):
-                raise BubblesError("All operands should come from a Pipeline")
+                raise PipelineError("All operands should come from a Pipeline")
 
             # Operands are expected to be pipelines forked from this one
             for outlet, operand in zip(restoutlets, operands):
