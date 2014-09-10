@@ -13,7 +13,6 @@ class Node(object):
         """Creates a `Node` with operation `op` and operation `options`"""
 
         self.opname = op
-        self.operands = []
 
         self.args = None
         self.kwargs = None
@@ -26,6 +25,9 @@ class Node(object):
 
     def __str__(self):
         return "<{} {}>".format(self.opname, id(self))
+
+    def __repr__(self):
+        return "Node({})".format(self.opname)
 
 
 Connection = namedtuple("Connection", ["source", "target", "outlet"])

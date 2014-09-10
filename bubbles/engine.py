@@ -82,6 +82,11 @@ class ExecutionEngine(object):
 
         """
 
+        if hasattr(obj, "graph"):
+            graph = obj.graph
+        else:
+            graph = obj
+
         # TODO: this method will be customizable in subclasses in the future
 
         # Operation -> Node -> Execution Step
@@ -121,8 +126,6 @@ class ExecutionEngine(object):
                 # Count the consumption (see note before the outer loop)
                 consumption[outlet_node] += 1
 
-            print("=== NODE %s(%s)" % (node.opname, node.operands))
-            print("--- STEP %s(%s)" % (node.opname, outlet_nodes))
             step = ExecutionStep(node, outlets=outlet_nodes)
 
             node_steps[node] = step
@@ -132,11 +135,17 @@ class ExecutionEngine(object):
 
         return plan
 
-    def run(self, graph):
-        """Runs the `graph` nodes. First an execution plan is prepared, then
-        the nodes are executed according to the plan. See
-        :meth:`ExecutionEngine.prepare_execution_plan` for more information.
+    def run(self, obj):
+        """Runs the `obj` which can be either a Pipeline or a graph. First an
+        execution plan is prepared, then the nodes are executed according to
+        the plan. See :meth:`ExecutionEngine.prepare_execution_plan` for more
+        information.
         """
+
+        if hasattr(obj, "graph"):
+            graph = obj.graph
+        else:
+            graph = obj
 
         plan = self.execution_plan(graph)
 

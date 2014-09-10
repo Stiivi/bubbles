@@ -21,15 +21,6 @@ class Pipeline(object):
         # Current node
         self.head = None
 
-    def __or__(self, other):
-        if isinstance(other, (NodeBase, Pipeline)):
-            p = Pipeline(graph.copy())
-            p.append_node(self)
-            return p | other
-        else:
-            raise TypeError("Node can be piped only to another node or a "
-                            "pipeline")
-
     def copy(self):
         """Creates a clone of the pipeline. The clone is a semi-shallow copy,
         with new graph and labels instances.  """
@@ -95,8 +86,6 @@ class _PipelineHead(object):
             if other is not self.pipeline:
                 p.graph.update(other.graph)
 
-            print("--- connecting ops: %s -> %s as %s" %
-                       (other.head, p.head, name))
             p.graph.connect(other.head, p.head, name)
 
         p.head.operands = names

@@ -34,29 +34,6 @@ class GraphTestCase(unittest.TestCase):
         self.assertEqual(2, len(sources))
         self.assertEqual(["detail", "master"], sorted(sources.keys()))
 
-    def test_outlets(self):
-        g = Graph()
-        src = Node("src")
-        g.add(src, "src")
-        g.add(Node("details"), "details")
-
-        join = Node("join")
-        join.configure(g.node("details"))
-
-        self.assertEqual(len(src.outlets), 0)
-        self.assertEqual(len(join.outlets), 1)
-
-        g.add(join, "join")
-        g.add(Node("target"), "target")
-
-        g.connect("src", "join")
-        g.connect("details", "join", "1")
-        sources = g.sources(join)
-        self.assertEqual(len(sources), 2)
-
-        self.assertCountEqual(sources.keys(), ["default", "1"])
-
-
 
 if __name__ == "__main__":
     unittest.main()
