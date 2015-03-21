@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from contextlib import ContextDecorator
+from .errors import ArgumentError
 
 import urllib.request
 import urllib.parse
@@ -55,7 +56,12 @@ class Resource(ContextDecorator):
             self.opener = opener
 
         self.handle = handle
-        self.should_close = handle is not None
+
+    # should_close can't go in the constructor, since later calling open() may
+    # implicitly change its value
+    @property
+    def should_close(self):
+        return self.handle is not None
 
     def open(self):
         if self.handle:
@@ -89,10 +95,10 @@ def is_local(url):
     return parts.scheme == '' or parts.scheme == 'file'
 
 def open_resource(resource, mode=None, encoding=None, binary=False):
-    raise NotImplementedError("open_resource is depreciated, use Resource")
+    raise NotImplementedError("open_resource is deprecated, use Resource")
 
 def read_json(url):
-    """Reads JSON from `url`. The `url` can be also a local file path."""
+    """Reads JSON from `url`. The `url` can also be a local file path."""
     with Resource(url) as f:
         try:
             data = json.load(f)
