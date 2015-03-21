@@ -5,7 +5,7 @@ Operations
 There are several kinds of operations:
 
 * Metadata operations – modify object's metadata or perform metadata related
-  adjustements on the object
+  adjustments on the object
 * Row operations – Operations on whole rows such as filtering
 * Field Operations – Derive fields, change fields, create fields,....
 * Compositions – compose multiple objects into one
@@ -134,14 +134,14 @@ Record Operations
     Signatures: ``rows``, ``sql``
 
 .. function:: sample(object, value[, discard][, mode='first'])
-    
+
     Resulting object will represent a sample of the `object`. The sample type
     is determined by `mode` which can be ``first``, ``nth`` or ``random``.
 
     Signatures: ``rows``, ``sql``
 
     .. note::
-    
+
         The ``sql`` version of this operation can operate only in the
         ``first`` mode.
 
@@ -211,7 +211,7 @@ Field Operations
     Resulting object will have additional columns derived from date fields in
     `fields` as date units specified in `parts`. Default parts are ``year``,
     ``month``, ``day``.
-    
+
     For example field `start_date` will yield new fields `start_date_year`,
     `start_date_month` and `start_date_day`.
 
@@ -250,7 +250,7 @@ Composition
 
 .. function:: append(objects)
 
-    Resulting object will represent sequentialy chained `objects`. The
+    Resulting object will represent sequentially chained `objects`. The
     `objects` are expected to have the same field structure.
 
     Signatures: ``rows``, ``sql``
@@ -261,7 +261,7 @@ Composition
 
         ``sql`` version of the operation for objects from the same store uses
         ``UNION``.
-        
+
         The ``sql`` version also expects all of the objects to be composable
         within the same connection, otherwise the ``rows`` version is retried.
 
@@ -274,7 +274,7 @@ Composition
     ``rows`` version of the operation consumes whole `detail` and returns an
     iterator over `master`
 
-    ``sql`` version of hte operation yields a ``JOIN`` statement. 
+    ``sql`` version of the operation yields a ``JOIN`` statement.
 
 
 Output
@@ -313,7 +313,7 @@ Conversions
 
         This method consumes whole iterator. Might be very costly on large
         datasets.
-    
+
 
 
 .. seealso::
@@ -365,11 +365,11 @@ Retry
 -----
 
 Sometimes it is not possible to preform composition, because the objects might
-be from different databaseds. Or there might be some other reason why
+be from different databases. Or there might be some other reason why
 operation might not be able to be performed on provided objects.
 
 In this case the operation might give up, but still not fail – it might assume
-that there might be some other operation that migh be able to complete desired
+that there might be some other operation that might be able to complete desired
 task. In our case, the SQL objects might not be composable:
 
 .. code-block:: python
@@ -387,5 +387,3 @@ task. In our case, the SQL objects might not be composable:
         statement = sqlalchemy.sql.expression.union(*statements)
 
         return first.clone_statement(statement=statement)
-
-

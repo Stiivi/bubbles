@@ -128,7 +128,7 @@ class CSVSource(DataObject):
         * `skip_rows`: number of rows to be skipped. Default: ``None``
         * `empty_as_null`: treat empty strings as ``Null`` values
         * `type_converters`: dictionary of converters (functions). It has
-          to cover all knowd types.
+          to cover all known types.
 
         Note: avoid auto-detection when you are reading from remote URL
         stream.
@@ -328,5 +328,3 @@ class CSVTarget(DataObject):
     def append_from(self, obj):
         for row in obj:
             self.append(row)
-
-

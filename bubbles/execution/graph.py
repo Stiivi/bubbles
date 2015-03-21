@@ -343,7 +343,7 @@ class Graph(object):
         #     output message (proposed topologically sorted order: L)
 
         if connections:
-            raise Exception("Steram has at least one cycle (%d connections left of %d)" % (len(connections), len(self.connections)))
+            raise Exception("Stream has at least one cycle (%d connections left of %d)" % (len(connections), len(self.connections)))
 
         return sorted_nodes
 
@@ -364,5 +364,3 @@ class Graph(object):
                 nodes[conn.outlet] = conn.source
 
         return nodes
-
-
