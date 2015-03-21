@@ -133,7 +133,7 @@ class OperationTestCase(unittest.TestCase):
 
         op = Operation("select")
 
-        with self.assertRaisesRegexp(ArgumentError, "Expected at least"):
+        with self.assertRaisesRegex(ArgumentError, "Expected at least"):
             op.register(func_invalid)
 
     def test_decorator(self):

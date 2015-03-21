@@ -66,13 +66,13 @@ def create_context(args):
         context = OperationContext()
     else:
         context = default_context
-        # Dummy request for an operation - forces automatic loading 
-        context.operation_list("distinct")
+        # Dummy request for an operation - forces automatic loading
+        context.operation("distinct")
 
     modules = args.module or []
     for name in modules:
         module = __import__(name)
-        context.add_operations_from(mod)
+        context.add_operations_from(module)
 
     return context
 
@@ -88,38 +88,39 @@ def opcatalogue(context, args):
 
     # Select only operations with signatures matching reps
     for opname in keys:
-        ops = context.operations[opname]
-        for op in ops:
-            if not reps or reps and (reps & set(op.signature.signature)):
+        op = context.operations[opname]
+        for signature in op.signatures():
+            if not reps or reps and (reps & set(signature)):
                 selection.append(opname)
+                break
 
     for opname in selection:
         print("%s" % opname)
 
         if args.signatures:
-            ops = context.operations[opname]
-            for op in ops:
-                if not reps or reps and (reps & set(op.signature.signature)):
-                    sig = ", ".join(op.signature.signature)
+            op = context.operations[opname]
+            for signature in op.signatures():
+                if not reps or reps and (reps & set(signature)):
+                    sig = ", ".join(signature)
                     print("    (%s)" % sig)
 
 def object_fields(context, args):
     store = ""
 
 # def run_pipe(args):
-# 
+#
 #     # Collect operations
 #     pattern = re.compile(r"^(\w+)=(.*)")
 #     templates = []
 #     attribs = {}
 #     current = None
-# 
+#
 #     # Cllect nodes and attributes
-#     # 
+#     #
 #     # node name pattern: node_name
 #     # attribute pattern: attribute=value
 #     #
-# 
+#
 #     for arg in args.node:
 #         match = pattern.match(arg)
 #         if match:
@@ -132,9 +133,9 @@ def object_fields(context, args):
 #             current = arg
 #     if current:
 #         templates.append( (current, attribs) )
-# 
+#
 #     pipe = Pipeline()
-# 
+#
 #     nodes = []
 #     for template, attribs in templates:
 #         try:
@@ -142,30 +143,30 @@ def object_fields(context, args):
 #         except KeyError:
 #             sys.stderr.write("ERROR: unknown node %s\n" % template)
 #             exit(1)
-# 
+#
 #         node.configure(attribs)
 #         stream.add(node)
 #         nodes.append(node)
-#         
+#
 #         if last_node:
 #             stream.connect(last_node, node)
 #         last_node = node
-#     
+#
 #     # If first node is not source node, then we add CSV node with standard
 #     # input
-#     
+#
 #     if not isinstance(nodes[0], brewery.nodes.SourceNode):
 #         node = brewery.nodes.create_node("csv_source")
 #         node.resource = sys.stdin
 #         stream.add(node)
 #         stream.connect(node, nodes[0])
-# 
+#
 #     if not isinstance(nodes[-1], brewery.nodes.TargetNode):
 #         node = brewery.nodes.create_node("csv_target")
 #         node.resource = sys.stdout
 #         stream.add(node)
 #         stream.connect(nodes[-1], node)
-#     
+#
 #     stream.run()
 
 ################################################################################
@@ -192,7 +193,7 @@ op_parser = subparsers.add_parser('op')
 op_subparsers = op_parser.add_subparsers(title='operation commands')
 
 subparser = op_subparsers.add_parser("list", help = "list available operations")
-subparser.add_argument('-r', '--representation', action='append',
+subparser.add_argument('-r', '--representation', action='append', default=[],
                     help="show operations having specified rep in signature")
 subparser.add_argument('--signatures', action='store_true',
                     help="show also operation signatures")
@@ -202,10 +203,10 @@ subparser.set_defaults(func=opcatalogue)
 ################################################################################
 # Command: metadata
 
-cmd_parser = subparsers.add_parser('object')
-cmd_subparsers = cmd_parser.add_subparsers(title='data object commands')
+object_parser = subparsers.add_parser('object')
+object_subparsers = object_parser.add_subparsers(title='data object commands')
 
-subparser = op_subparsers.add_parser("fields", help = "get object's metadata")
+subparser = object_subparsers.add_parser("fields", help = "get object's metadata")
 subparser.add_argument("store", help="Store name")
 subparser.add_argument("object", help="Object name")
 subparser.set_defaults(func=object_fields)
@@ -217,11 +218,11 @@ subparser.set_defaults(func=object_fields)
 #                      formatter_class=argparse.RawDescriptionHelpFormatter,
 #                      description=textwrap.dedent('''\
 #                      There should be at least one operation specified.
-# 
+#
 #                      The arguments are either operations or operation
 #                      arguments. Attributes follow node name and have format:
 #                      attribute=value
-# 
+#
 #                      If there is no source node, then CSV source on standard
 #                      input is assumed. If there is no target node, then CSV
 #                      target on standard output is assumed.
@@ -229,7 +230,7 @@ subparser.set_defaults(func=object_fields)
 #                  )
 # subparser.add_argument('op', nargs="+", help='list of operations')
 # subparser.set_defaults(func=run_pipe)
-# # 
+# #
 
 args = main_parser.parse_args(sys.argv[1:])
 
