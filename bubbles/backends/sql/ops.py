@@ -787,8 +787,7 @@ def _(ctx, obj, field, value):
 
     statement = sql.expression.select(selection,
                                        from_obj=statement,
-                                       group_by=group,
-                                       having=condition,
+                                       whereclause=condition,
                                        limit=1)
 
     result = list(obj.store.execute(statement))
