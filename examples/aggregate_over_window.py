@@ -28,7 +28,7 @@ stores = { "default": open_store("sql","sqlite:///") }
 #
 
 p = Pipeline(stores=stores)
-p.source_object("iterable", iterable=data, fields=fields)
+p.source_object("iterable_data_source", iterable=data, fields=fields)
 
 # Uncomment this to get SQL operations instead of python iterator
 p.create("default", "data")
@@ -44,4 +44,3 @@ p.join_details(last_purchase, "customer_id", "customer_id")
 p.pretty_print()
 
 p.run()
-

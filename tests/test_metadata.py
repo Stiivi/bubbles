@@ -1,6 +1,6 @@
 import unittest
 from copy import copy
-from bubbles import FieldList, Field, FieldFilter, to_field
+from bubbles import FieldList, Field, FieldFilter, to_field, prepare_aggregation_list
 from bubbles.errors import *
 
 class FieldListTestCase(unittest.TestCase):
@@ -42,8 +42,15 @@ class FieldListTestCase(unittest.TestCase):
     def test_contains(self):
         fields = FieldList("a", "b", "c", "d")
         field = Field("a")
-        self.assertEqual(True, "a" in fields)
-        self.assertEqual(True, field in fields._fields)
+        self.assertIn("a", fields)
+        self.assertIn(field, fields._fields)
+
+    def test_aggregated_fields(self):
+        fields = FieldList("a", "b")
+        agg_list = prepare_aggregation_list(['a', ('b', 'avg')])
+        agg_fields = fields.aggregated_fields(agg_list)
+        self.assertListEqual(
+            ['a_sum', 'b_avg', 'record_count'], agg_fields.names())
 
     #def test_retype(self):
     #    fields = FieldList(["a", "b", "c", "d"])
@@ -144,4 +151,3 @@ def test_suite():
    suite.addTest(unittest.makeSuite(MetadataTestCase))
 
    return suite
-

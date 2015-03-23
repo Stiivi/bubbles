@@ -59,7 +59,7 @@ class ExecutionEngine(object):
         `context`.
 
         `stores` is a mapping of store names and opened data stores. Stores
-        are used when resoving data sources by reference.
+        are used when resolving data sources by reference.
 
         Execution engine is also used in :class:`Pipeline` objects to run the
         pipelines.

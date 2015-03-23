@@ -36,7 +36,7 @@ storage_types = (
 
         "datetime", # Full date and time with time zone
         "time",     # time without a date
-        "date",     # 
+        "date",     #
 
         "array",    # ordered collection type
         "object",   # JSON-like object
@@ -297,7 +297,7 @@ class FieldList(object):
         """Appends a field to the list. This method requires `field` to be
         instance of `Field`"""
 
-        # FIXME: depreciated: FieldList should be immutable
+        # FIXME: deprecated: FieldList should be immutable
         field = to_field(field)
         self._fields.append(field)
         self._field_dict[field.name] = field
@@ -316,7 +316,6 @@ class FieldList(object):
             return names
         else:
             return self._field_names
-
 
     def indexes(self, fields):
         """Return a tuple with indexes of fields from ``fields`` in a data row. Fields
@@ -385,7 +384,7 @@ class FieldList(object):
 
         Example:
 
-        >>> agg_list = aggregation_list(['amount', ('discount', 'avg')])
+        >>> agg_list = prepare_aggregation_list(['amount', ('discount', 'avg')])
         >>> agg_fields = fields.aggregated_fields(agg_list)
 
         Will return fields with names: `('amount_sum', 'discount_avg',
@@ -394,20 +393,24 @@ class FieldList(object):
 
         agg_fields = FieldList()
 
-        for measure in measures:
+        for measure in aggregation_list:
             if isinstance(measure, (str, Field)):
                 field = str(measure)
-                index = fields.index(field)
+                index = self.index(field)
                 aggregate = "sum"
             elif isinstance(measure, (list, tuple)):
                 field = measure[0]
-                index = fields.index(field)
+                index = self.index(field)
                 aggregate = measure[1]
 
-            field = fields.field(measure)
-            field = field.clone(name="%s_%s" % (str(measure), aggregate),
+            field = self.field(field)
+            field = field.clone(name="%s_%s" % (str(field), aggregate),
                                 analytical_type="measure")
             agg_fields.append(field)
+
+        if include_count:
+            agg_fields.append(Field(
+                count_field, storage_type="integer", analytical_type="measure"))
 
         return agg_fields
 

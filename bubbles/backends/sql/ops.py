@@ -219,6 +219,8 @@ def _(ctx, obj, key, measures=None, include_count=True,
 
     out_fields = FieldList()
     out_fields += obj.fields.fields(keys)
+    out_fields += obj.fields.aggregated_fields(
+        measures, include_count, count_field)
 
     statement = obj.sql_statement()
     group = [statement.c[str(key)] for key in keys]
@@ -231,17 +233,8 @@ def _(ctx, obj, key, measures=None, include_count=True,
         aggregation = func(obj.column(measure)).label(label)
         selection.append(aggregation)
 
-        # TODO: make this a metadata function
-        field = obj.fields.field(measure)
-        field = field.clone(name=label, analytical_type="measure")
-        out_fields.append(field)
-
     if include_count:
-        out_fields.append(Field(count_field,
-                            storage_type="integer",
-                            analytical_type="measure"))
-
-        count =  sql.functions.count(1).label(count_field)
+        count = sql.functions.count(1).label(count_field)
         selection.append(count)
 
     statement = sql.expression.select(selection,
@@ -353,9 +346,9 @@ def _(ctx, obj, fields, parts=["year", "month", "day"]):
 
 # @operation("sql")
 # def string_to_date(ctx, obj, fields, fmt="%Y-%m-%dT%H:%M:%S.Z"):
-# 
+#
 #     date_fields = prepare_key(fields)
-# 
+#
 #     selection = []
 #     # Prepare output fields
 #     fields = FieldList()
@@ -364,11 +357,11 @@ def _(ctx, obj, fields, parts=["year", "month", "day"]):
 #         if str(field) in date_fields:
 #             fields.append(field.clone(storage_type="date",
 #                                       concrete_storage_type=None))
-# 
+#
 #         else:
 #             fields.append(field.clone())
 #         selection.append(col)
-# 
+#
 #     return IterableDataSource(iterator(indexes), fields)
 
 
@@ -437,7 +430,7 @@ def _(ctx, master, detail, master_key, detail_key):
 
     return master.clone_statement(statement=select, fields=out_fields)
 
-# TODO: depreciated
+# TODO: deprecated
 @join_details.register("sql", "sql[]", name="join_details")
 def _(ctx, master, details, joins):
     """Creates left inner master-detail join (star schema) where `master` is an
@@ -794,8 +787,7 @@ def _(ctx, obj, field, value):
 
     statement = sql.expression.select(selection,
                                        from_obj=statement,
-                                       group_by=group,
-                                       having=condition,
+                                       whereclause=condition,
                                        limit=1)
 
     result = list(obj.store.execute(statement))
@@ -849,7 +841,7 @@ def _(ctx, source, target):
     # insertion order (just in case)
     target.flush()
 
-    # Preare INSERT INTO ... SELECT ... statement
+    # Prepare INSERT INTO ... SELECT ... statement
     statement = InsertFromSelect(target.table, source.selectable())
 
     target.store.execute(statement)
@@ -884,4 +876,3 @@ def _(ctx, source, target):
     target.flush()
 
     return target
-
